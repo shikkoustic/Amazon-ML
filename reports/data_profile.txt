@@ -1,0 +1,214 @@
+
+==============================================================================
+  1. PER-FILE PROFILE
+==============================================================================
+
+--- train_source1  (2,206,821 rows) ---
+  country      : US=1,323,633 (60.0%), India=883,188 (40.0%)
+  name script  : latin=100.00%
+  addr script  : latin=100.00%
+  empty        : name=0 (0.00%)  address=0 (0.00%)  country=0
+  duplicate ids: 0
+  name length  : mean=24 median=24 max=85
+  addr length  : mean=52 median=41 max=245
+
+--- train_source2  (5,034,616 rows) ---
+  country      : US=3,016,817 (59.9%), India=2,017,799 (40.1%)
+  name script  : latin=90.88%, devanagari=5.17%, other=3.95%, none=0.00%
+  addr script  : latin=96.61%, none=3.38%, devanagari=0.01%, other=0.00%
+  empty        : name=0 (0.00%)  address=168,967 (3.36%)  country=0
+  duplicate ids: 0
+  name length  : mean=25 median=25 max=103
+  addr length  : mean=46 median=37 max=218
+
+--- train_source3  (5,285,603 rows) ---
+  country      : US=3,170,056 (60.0%), India=2,115,547 (40.0%)
+  name script  : latin=95.17%, devanagari=2.73%, other=2.09%, none=0.01%
+  addr script  : latin=96.62%, none=3.33%, devanagari=0.04%, other=0.01%
+  empty        : name=0 (0.00%)  address=175,916 (3.33%)  country=0
+  duplicate ids: 0
+  name length  : mean=25 median=25 max=108
+  addr length  : mean=47 median=42 max=234
+
+--- test_source1  (1,732,544 rows) ---
+  country      : India=809,986 (46.8%), US=663,106 (38.3%), France=259,452 (15.0%)
+  name script  : latin=100.00%
+  addr script  : latin=100.00%
+  empty        : name=0 (0.00%)  address=0 (0.00%)  country=0
+  duplicate ids: 0
+  name length  : mean=24 median=24 max=88
+  addr length  : mean=57 median=51 max=268
+
+--- test_source2  (4,887,273 rows) ---
+  country      : India=2,312,565 (47.3%), US=1,871,330 (38.3%), France=703,378 (14.4%)
+  name script  : latin=89.08%, devanagari=6.17%, other=4.75%, none=0.00%
+  addr script  : latin=97.33%, none=2.65%, devanagari=0.02%, other=0.00%
+  empty        : name=0 (0.00%)  address=129,408 (2.65%)  country=0
+  duplicate ids: 0
+  name length  : mean=26 median=25 max=94
+  addr length  : mean=50 median=43 max=242
+
+--- test_source3  (5,082,316 rows) ---
+  country      : India=2,405,000 (47.3%), US=1,945,701 (38.3%), France=731,615 (14.4%)
+  name script  : latin=94.19%, devanagari=3.30%, other=2.50%, none=0.00%
+  addr script  : latin=97.22%, none=2.71%, devanagari=0.06%, other=0.01%
+  empty        : name=0 (0.00%)  address=136,098 (2.68%)  country=0
+  duplicate ids: 0
+  name length  : mean=26 median=25 max=103
+  addr length  : mean=49 median=43 max=267
+
+[71s]
+
+==============================================================================
+  2. GROUND TRUTH STRUCTURE
+==============================================================================
+S1 entities            : 2,206,821
+singletons (no match)  : 123,247  (5.58%)
+  -> an all-empty submission scores 0.0558 macro F_0.5
+matches per entity     : mean=3.46 median=3 p90=6 p99=8 max=11
+
+match composition:
+  both S2 and S3 : 1,776,047 (80.48%)
+  only S2        : 143,029 (6.48%)
+  only S3        : 164,498 (7.45%)
+  neither        : 123,247 (5.58%)
+
+match-count distribution:
+   0 :   123,247  ( 5.58%)  cum  5.585%
+   1 :   119,157  ( 5.40%)  cum 10.984%
+   2 :   375,212  (17.00%)  cum 27.987%
+   3 :   530,841  (24.05%)  cum 52.041%
+   4 :   484,115  (21.94%)  cum 73.978%
+   5 :   321,957  (14.59%)  cum 88.568%
+   6 :   164,868  ( 7.47%)  cum 96.038%
+   7 :    63,968  ( 2.90%)  cum 98.937%
+   8 :    18,680  ( 0.85%)  cum 99.784%
+   9 :     4,205  ( 0.19%)  cum 99.974%
+  10 :       534  ( 0.02%)  cum 99.998%
+  11 :        37  ( 0.00%)  cum 100.000%
+
+max S2 matches for one entity: 5    max S3: 6
+S2 per entity: 0:13.0%, 1:35.8%, 2:29.6%, 3:15.1%, 4:5.4%, 5:1.1%
+S3 per entity: 0:12.1%, 1:32.5%, 2:30.3%, 3:16.9%, 4:6.6%, 5:1.6%, 6:0.1%
+
+[91s]
+
+==============================================================================
+  3. TRUE-PAIR ANALYSIS  (sampled)
+==============================================================================
+sampled 150,000 non-singleton S1 entities -> 549,323 matched records to fetch
+fetched 699,323 records  [108s]
+
+true pairs analysed: 549,323
+
+--- COUNTRY AGREEMENT (does same-country blocking lose matches?) ---
+  same country   : 549,323 (100.0000%)
+  DIFFERENT      : 0 (0.0000%)   <-- recall lost if we partition
+  missing country: 0 (0.0000%)
+
+--- SCRIPT AGREEMENT (can char n-grams see the pair at all?) ---
+  same script    : 511,502 (93.11%)
+  CROSS-SCRIPT   : 37,821 (6.89%)   <-- lexical methods blind here
+
+--- TRUE-PAIR SIMILARITY (how loose must blocking be?) ---
+  name 3-gram Jaccard: mean=0.721  p1=0.000 p5=0.000 p10=0.227 p25=0.531 median=0.800 p75=1.000
+      pairs with sim >= 0.05:  91.58%
+      pairs with sim >= 0.10:  91.34%
+      pairs with sim >= 0.20:  90.52%
+      pairs with sim >= 0.30:  88.22%
+      pairs with sim >= 0.40:  84.14%
+      pairs with sim >= 0.50:  78.29%
+
+  addr 3-gram Jaccard: mean=0.644  p1=0.000 p5=0.138 p10=0.300 p25=0.512 median=0.677 p75=0.821
+      pairs with sim >= 0.05:  95.53%
+      pairs with sim >= 0.10:  95.39%
+      pairs with sim >= 0.20:  93.68%
+      pairs with sim >= 0.30:  90.02%
+      pairs with sim >= 0.40:  84.87%
+      pairs with sim >= 0.50:  76.92%
+
+--- examples of cross country/script true pairs ---
+  S1-225411598 [latin] 'Silver Foundation Private Limited'
+     <-> S2-144468765 [devanagari] 'सिल्वर फाउंडेशन प्राइवेट लिमिटेड'
+  S1-806634681 [latin] 'Big International Private Limited'
+     <-> S2-694521942 [devanagari] 'बिग इंटरनेशनल प्राइवेट लिमिटेड'
+  S1-806634681 [latin] 'Big International Private Limited'
+     <-> S3-318300635 [devanagari] 'बिग इंटरनेशनल प्राइवेट लिमिटेड'
+  S1-353339989 [latin] 'Prime Finance Private Limited'
+     <-> S2-643796813 [other] 'ప్రైమ్ ఫైనాన్స్ ప్రైవేట్ లిమిటెడ్'
+  S1-63490613 [latin] 'Digital Foods Private Limited'
+     <-> S2-144895464 [devanagari] 'डिजिटल फूड्स प्राइवेट लिमिटेड'
+  S1-614525698 [latin] 'Real Investment Private Limited'
+     <-> S2-498879283 [devanagari] 'रियल इन्वेस्टमेंट प्राइवेट लिमिटेड'
+  S1-614525698 [latin] 'Real Investment Private Limited'
+     <-> S2-104526419 [devanagari] 'रियल इन्वेस्टमेंट प्राइवेट लिमिटेड'
+  S1-552232455 [latin] 'Shiv Foundation'
+     <-> S2-213697156 [devanagari] 'शिव फाउंडेशन'
+  S1-552232455 [latin] 'Shiv Foundation'
+     <-> S2-986317282 [devanagari] 'शिव फाउंडेशन'
+  S1-552232455 [latin] 'Shiv Foundation'
+     <-> S3-417063859 [devanagari] 'शिव फाउंडेशन'
+
+--- TRUE pairs that look almost nothing alike (name sim < 0.15) ---
+  sim=0.000
+    name: 'Silver Foundation Private Limited'
+      <-> 'सिल्वर फाउंडेशन प्राइवेट लिमिटेड'
+    addr: 'F-25, Asha Complex, Sec- 18, Lndira Nagar, Lucknow, Uttar Pr'
+      <-> 'F-25, LUCKNOW  HQ REGION, Uttar Pradesh'
+  sim=0.000
+    name: 'Big International Private Limited'
+      <-> 'बिग इंटरनेशनल प्राइवेट लिमिटेड'
+    addr: 'C/O Bhuvnesh Kumar, Dadri, Uttar Pradesh, Kulesa, Greater No'
+      <-> 'C/O BHUVNESH KUMAR, KULESA, GREATER NOIDA, DADRI, GAUTAM BUD'
+  sim=0.000
+    name: 'Big International Private Limited'
+      <-> 'बिग इंटरनेशनल प्राइवेट लिमिटेड'
+    addr: 'C/O Bhuvnesh Kumar, Dadri, Uttar Pradesh, Kulesa, Greater No'
+      <-> 'Door No 171 C/o Bhuvnesh Kumar, Kulesa, Greater Noida, Dadri'
+  sim=0.000
+    name: 'India Saaol Udyog Private Limited'
+      <-> 'Pyradrexio'
+    addr: 'Bhagirathi Sadana, 3Rd Ward, Opp Bjp Office, Patel Nagara, H'
+      <-> 'Bhagirathi Sadana, 3Rd Ward, Opp Bjp Office, Patel Nagara, H'
+  sim=0.000
+    name: 'Reza, Curry & Bartman PLLC'
+      <-> 'Bélocalo'
+    addr: '1819 Lynnwood Drive, Benton, AR'
+      <-> '#1819 LYNNWOOD DR, BENTON, AR'
+  sim=0.000
+    name: 'Prime Finance Private Limited'
+      <-> 'ప్రైమ్ ఫైనాన్స్ ప్రైవేట్ లిమిటెడ్'
+    addr: 'Plot No.205, Hyderabad, Shanthi Apartments, Bhgyanagar Socie'
+      <-> 'DOOR NO 205, SHANTHI APARTMENTS, BHGYANAGAR SOCIETY, KUKATPA'
+  sim=0.000
+    name: 'Digital Foods Private Limited'
+      <-> 'डिजिटल फूड्स प्राइवेट लिमिटेड'
+    addr: '602 / B Wing, Crescent Residency Off Marol Maroshi Road, And'
+      <-> 'H.NO B3/602 / B WING, <NULL>, MUMBAI, MUMBAI CITY, महाराष्ट्'
+  sim=0.000
+    name: 'Real Investment Private Limited'
+      <-> 'रियल इन्वेस्टमेंट प्राइवेट लिमिटेड'
+    addr: 'Flat No. 2146, Sec-C, Pkt-Ii Vasant Kunj, Delhi, South West '
+      <-> 'FLAT NO. 2146, DELHI, SOUTH WEST DELHI, Delhi'
+  sim=0.000
+    name: 'Real Investment Private Limited'
+      <-> 'रियल इन्वेस्टमेंट प्राइवेट लिमिटेड'
+    addr: 'Flat No. 2146, Sec-C, Pkt-Ii Vasant Kunj, Delhi, South West '
+      <-> 'H.NO 2146, SOUTH WEST DELHI, DELHI'
+  sim=0.000
+    name: 'Buvous LLC'
+      <-> 'Gildcirazeta'
+    addr: '3290 Kirby Avenue, Oskaloosa, IA'
+      <-> '3290 Kirby Ave, East Des Moines, Iowa'
+  sim=0.000
+    name: 'Buvous LLC'
+      <-> 'Evolumzeta'
+    addr: '3290 Kirby Avenue, Oskaloosa, IA'
+      <-> '3290 Kirby Ave, Oskaloosa, Iowa'
+  sim=0.000
+    name: 'Hilite College Private Limited'
+      <-> 'Zephonyxecto'
+    addr: '# 1023 Sy No, 18/1B, Big Banyan Roots, (Apt 507) Near Carmel'
+      <-> 'Door No 1023. Sy No, 18/1B, Big Banyan Roots, (Apt 507) Near'
+
+[128s total]
