@@ -386,9 +386,19 @@ def main() -> None:
             qmap = np.array(qsel, np.int32)
 
             for sig, qcol, icol in (("name", q_name, "name_key"),
-                                    ("addr", q_addr, "addr_key")):
-                idx_text = [d[icol][i] for i in idx_pos]
-                qt = [qcol[i] for i in qsel]
+                                    ("addr", q_addr, "addr_key"),
+                                    ("combo", None, None)):
+                # "combo" indexes name and address as one string. Separate
+                # passes cannot express that a record agreeing on BOTH fields
+                # is a better candidate than one agreeing on either alone,
+                # which is precisely what the top-K ranking was losing.
+                if sig == "combo":
+                    idx_text = [d["name_key"][i] + " " + d["addr_key"][i]
+                                for i in idx_pos]
+                    qt = [q_name[i] + " " + q_addr[i] for i in qsel]
+                else:
+                    idx_text = [d[icol][i] for i in idx_pos]
+                    qt = [qcol[i] for i in qsel]
                 for ng in ngram_opts:
                     ckey = f"{sig}_{ng[0]}{ng[1]}_s{src}__{cty}"
                     cached = load_pass(ckey)
@@ -463,10 +473,10 @@ def main() -> None:
         spend its whole budget on one source and lose the other entirely."""
         out = []
         for g in groups:
-            for src in (2, 3):
-                key = f"{g}_s{src}"
-                if key in merged:
-                    out.append(key)
+            found = [f"{g}_s{src}" for src in (2, 3) if f"{g}_s{src}" in merged]
+            if not found:
+                return []        # a partially-present group would silently
+            out.extend(found)    # report a different config than the label says
         return out
 
     def run(label: str, groups: list[str], k: int | None, min_sim: float):
@@ -489,37 +499,63 @@ def main() -> None:
     for ng in ("33", "24"):
         for k in (10, 25, 50, 100):
             run(f"name only ({ng})", [f"name_{ng}"], k, 0.0)
-    for ng in ("33", "24"):
-        for k in (10, 25, 50, 100):
             run(f"addr only ({ng})", [f"addr_{ng}"], k, 0.0)
 
-    print("\n-- name + address union --", flush=True)
+    print("\n-- combined name+address field --", flush=True)
+    for k in (10, 25, 50, 100):
+        run("combo only (33)", ["combo_33"], k, 0.0)
+    for k in (10, 25, 50):
+        run("combo+name+addr (33)", ["combo_33", "name_33", "addr_33"], k, 0.0)
+        run("combo+addr (33)", ["combo_33", "addr_33"], k, 0.0)
+    for k in (25, 50):
+        run("EVERYTHING (33)", ["combo_33", "name_33", "addr_33",
+                                "sorted_token", "rare_token"], k, 0.0)
+
+    print("\n-- name + address union, K sweep --", flush=True)
     for ng in ("33", "24"):
-        for k in (10, 25, 50):
+        for k in (10, 25, 50, 100):
             run(f"name+addr ({ng})", [f"name_{ng}", f"addr_{ng}"], k, 0.0)
 
-    print("\n-- adding the cheap key passes --", flush=True)
+    print("\n-- with cheap key passes --", flush=True)
     for ng in ("33", "24"):
-        for k in (25, 50):
-            run(f"name+addr+sorted ({ng})", [f"name_{ng}", f"addr_{ng}", "sorted_token"], k, 0.0)
-            run(f"all passes ({ng})", [f"name_{ng}", f"addr_{ng}", "sorted_token", "rare_token"], k, 0.0)
+        for k in (25, 50, 100):
+            run(f"all passes ({ng})", [f"name_{ng}", f"addr_{ng}",
+                                       "sorted_token", "rare_token"], k, 0.0)
 
-    print("\n-- similarity floor (on the best union) --", flush=True)
+    print("\n-- similarity floor at k=100 --", flush=True)
     for ms in (0.0, 0.02, 0.05, 0.10):
-        run("name+addr (24)", ["name_24", "addr_24"], 25, ms)
+        run("name+addr (33)", ["name_33", "addr_33"], 100, ms)
 
-    print("\n-- ablation: what does each pass contribute at k=25? --", flush=True)
-    full = ["name_24", "addr_24", "sorted_token", "rare_token"]
+    print("\n-- similarity floor, meaningful range --", flush=True)
+    # the 100th-best candidate already scores ~0.26, so a floor below that
+    # filters nothing; useful thresholds start well above it
+    for ms in (0.0, 0.3, 0.4, 0.5, 0.6):
+        run("combo+name+addr (33)", ["combo_33", "name_33", "addr_33"], 50, ms)
+
+    print("\n-- ablation: contribution of each pass --", flush=True)
+    full = ["combo_33", "name_33", "addr_33", "sorted_token", "rare_token"]
     full = [g for g in full if expand([g])]
-    base = run("ALL", full, 25, 0.0)
+    base = run("ALL", full, 50, 0.0)
     if base:
         for drop in full:
-            kept = [x for x in full if x != drop]
-            m = run(f"  without {drop}", kept, 25, 0.0)
+            m = run(f"  without {drop}", [x for x in full if x != drop], 50, 0.0)
             if m:
-                print(f"      -> dropping {drop:<14} costs {base['recall']-m['recall']:+.4%} "
-                      f"recall, saves {base['cand_per_entity']-m['cand_per_entity']:6.1f} "
+                print(f"      -> {drop:<14} contributes {base['recall']-m['recall']:+.4%} "
+                      f"recall for {base['cand_per_entity']-m['cand_per_entity']:6.1f} "
                       f"cand/entity", flush=True)
+
+    print("\n-- efficiency frontier: recall per candidate --", flush=True)
+    for label, groups, k, ms in [
+        ("combo", ["combo_33"], 10, 0.0),
+        ("combo", ["combo_33"], 25, 0.0),
+        ("combo", ["combo_33"], 50, 0.0),
+        ("combo+addr", ["combo_33", "addr_33"], 25, 0.0),
+        ("combo+name+addr", ["combo_33", "name_33", "addr_33"], 25, 0.0),
+        ("combo+name+addr", ["combo_33", "name_33", "addr_33"], 50, 0.0),
+        ("ALL", full, 50, 0.0),
+        ("ALL", full, 100, 0.0),
+    ]:
+        m = run(f"{label}", groups, k, ms)
 
     REPORTS.mkdir(exist_ok=True)
     (REPORTS / args.out).write_text(json.dumps(results, indent=1, default=str))

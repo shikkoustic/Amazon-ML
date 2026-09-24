@@ -1,0 +1,1104 @@
+[
+ {
+  "recall": 0.5797871572350656,
+  "tp": 40152,
+  "fn": 29101,
+  "complete_entities": 0.31643023502011436,
+  "candidates": 400000,
+  "cand_per_entity": 20.0,
+  "by_country": {
+   "India": 0.5110337485974048,
+   "US": 0.6490607606679035
+  },
+  "config": "name only (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8343754061195905,
+  "tp": 57783,
+  "fn": 11470,
+  "complete_entities": 0.6104700402286682,
+  "candidates": 400000,
+  "cand_per_entity": 20.0,
+  "by_country": {
+   "India": 0.8043559570733952,
+   "US": 0.8646219851576994
+  },
+  "config": "addr only (33)",
+  "passes": [
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.6484051232437584,
+  "tp": 44904,
+  "fn": 24349,
+  "complete_entities": 0.390006351894982,
+  "candidates": 1000000,
+  "cand_per_entity": 50.0,
+  "by_country": {
+   "India": 0.5827027649106655,
+   "US": 0.7146045918367347
+  },
+  "config": "name only (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8660563441294962,
+  "tp": 59977,
+  "fn": 9276,
+  "complete_entities": 0.6688016091467288,
+  "candidates": 1000000,
+  "cand_per_entity": 50.0,
+  "by_country": {
+   "India": 0.8354000632966021,
+   "US": 0.896944573283859
+  },
+  "config": "addr only (33)",
+  "passes": [
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.6972549925634991,
+  "tp": 48287,
+  "fn": 20966,
+  "complete_entities": 0.434946008892653,
+  "candidates": 2000000,
+  "cand_per_entity": 100.0,
+  "by_country": {
+   "India": 0.6346922922001323,
+   "US": 0.7602910482374768
+  },
+  "config": "name only (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8806983090985228,
+  "tp": 60991,
+  "fn": 8262,
+  "complete_entities": 0.6962735549438916,
+  "candidates": 2000000,
+  "cand_per_entity": 100.0,
+  "by_country": {
+   "India": 0.8525476882354633,
+   "US": 0.9090619202226345
+  },
+  "config": "addr only (33)",
+  "passes": [
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.7376431345934472,
+  "tp": 51084,
+  "fn": 18169,
+  "complete_entities": 0.483590937963159,
+  "candidates": 4000000,
+  "cand_per_entity": 200.0,
+  "by_country": {
+   "India": 0.6695629657335213,
+   "US": 0.8062384044526901
+  },
+  "config": "name only (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8949070798376966,
+  "tp": 61975,
+  "fn": 7278,
+  "complete_entities": 0.7223692568282871,
+  "candidates": 4000000,
+  "cand_per_entity": 200.0,
+  "by_country": {
+   "India": 0.8711051011307075,
+   "US": 0.918889146567718
+  },
+  "config": "addr only (33)",
+  "passes": [
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9340389586010714,
+  "tp": 64685,
+  "fn": 4568,
+  "complete_entities": 0.8158479779800974,
+  "candidates": 400000,
+  "cand_per_entity": 20.0,
+  "by_country": {
+   "India": 0.8926547170354173,
+   "US": 0.9757363172541744
+  },
+  "config": "combo only (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9499083072213478,
+  "tp": 65784,
+  "fn": 3469,
+  "complete_entities": 0.8556531865339826,
+  "candidates": 1000000,
+  "cand_per_entity": 50.0,
+  "by_country": {
+   "India": 0.9154702649825934,
+   "US": 0.9846069109461967
+  },
+  "config": "combo only (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9590631452789049,
+  "tp": 66418,
+  "fn": 2835,
+  "complete_entities": 0.880107982214694,
+  "candidates": 2000000,
+  "cand_per_entity": 100.0,
+  "by_country": {
+   "India": 0.9291941191702391,
+   "US": 0.9891581632653061
+  },
+  "config": "combo only (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9665574054553593,
+  "tp": 66937,
+  "fn": 2316,
+  "complete_entities": 0.9004340461571035,
+  "candidates": 4000000,
+  "cand_per_entity": 200.0,
+  "by_country": {
+   "India": 0.9411053888425354,
+   "US": 0.9922019944341373
+  },
+  "config": "combo only (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9577635625893464,
+  "tp": 66328,
+  "fn": 2925,
+  "complete_entities": 0.8800021172983273,
+  "candidates": 960841,
+  "cand_per_entity": 48.04205,
+  "by_country": {
+   "India": 0.9307477630405386,
+   "US": 0.9849837662337663
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9414321401238935,
+  "tp": 65197,
+  "fn": 4056,
+  "complete_entities": 0.8351153927588397,
+  "candidates": 627406,
+  "cand_per_entity": 31.3703,
+  "by_country": {
+   "India": 0.9015737836982478,
+   "US": 0.9815920686456401
+  },
+  "config": "combo+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9696475242949764,
+  "tp": 67151,
+  "fn": 2102,
+  "complete_entities": 0.9117615922083422,
+  "candidates": 2522731,
+  "cand_per_entity": 126.13655,
+  "by_country": {
+   "India": 0.9494778030324826,
+   "US": 0.9899698515769945
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9554387535558027,
+  "tp": 66167,
+  "fn": 3086,
+  "complete_entities": 0.8705272072835063,
+  "candidates": 1633786,
+  "cand_per_entity": 81.6893,
+  "by_country": {
+   "India": 0.9233535690652243,
+   "US": 0.9877666975881262
+  },
+  "config": "combo+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9762465163964016,
+  "tp": 67608,
+  "fn": 1645,
+  "complete_entities": 0.9292293034088503,
+  "candidates": 5115901,
+  "cand_per_entity": 255.79505,
+  "by_country": {
+   "India": 0.9597778864689127,
+   "US": 0.9928397495361782
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9636116846923599,
+  "tp": 66733,
+  "fn": 2520,
+  "complete_entities": 0.8918060554732162,
+  "candidates": 3307891,
+  "cand_per_entity": 165.39455,
+  "by_country": {
+   "India": 0.9360992030382369,
+   "US": 0.9913323283858998
+  },
+  "config": "combo+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9716402177522996,
+  "tp": 67289,
+  "fn": 1964,
+  "complete_entities": 0.9171077704848614,
+  "candidates": 2997089,
+  "cand_per_entity": 149.85445,
+  "by_country": {
+   "India": 0.9527864890525649,
+   "US": 0.9906365955473099
+  },
+  "config": "EVERYTHING (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9770984650484456,
+  "tp": 67667,
+  "fn": 1586,
+  "complete_entities": 0.9319288587762016,
+  "candidates": 5450739,
+  "cand_per_entity": 272.53695,
+  "by_country": {
+   "India": 0.961130132059729,
+   "US": 0.9931876159554731
+  },
+  "config": "EVERYTHING (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9288839472658225,
+  "tp": 64328,
+  "fn": 4925,
+  "complete_entities": 0.8130954901545627,
+  "candidates": 758252,
+  "cand_per_entity": 37.9126,
+  "by_country": {
+   "India": 0.9013723854187645,
+   "US": 0.95660366419295
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9507602558733917,
+  "tp": 65843,
+  "fn": 3410,
+  "complete_entities": 0.865022231632437,
+  "candidates": 1950822,
+  "cand_per_entity": 97.5411,
+  "by_country": {
+   "India": 0.9282734413211727,
+   "US": 0.9734172077922078
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9631640506548452,
+  "tp": 66702,
+  "fn": 2551,
+  "complete_entities": 0.893552826593267,
+  "candidates": 3945747,
+  "cand_per_entity": 197.28735,
+  "by_country": {
+   "India": 0.9459964899157004,
+   "US": 0.9804615027829313
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9724777265966817,
+  "tp": 67347,
+  "fn": 1906,
+  "complete_entities": 0.9177958924412449,
+  "candidates": 7940392,
+  "cand_per_entity": 397.0196,
+  "by_country": {
+   "India": 0.959087378082113,
+   "US": 0.985969387755102
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9576480441280523,
+  "tp": 66320,
+  "fn": 2933,
+  "complete_entities": 0.8802138471310608,
+  "candidates": 2438584,
+  "cand_per_entity": 121.9292,
+  "by_country": {
+   "India": 0.9364156860488535,
+   "US": 0.9790410482374768
+  },
+  "config": "all passes (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9659509335335653,
+  "tp": 66895,
+  "fn": 2358,
+  "complete_entities": 0.9011221681134872,
+  "candidates": 4293422,
+  "cand_per_entity": 214.6711,
+  "by_country": {
+   "India": 0.948355726903933,
+   "US": 0.98367926716141
+  },
+  "config": "all passes (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9737917490939021,
+  "tp": 67438,
+  "fn": 1815,
+  "complete_entities": 0.9218716917213635,
+  "candidates": 8176837,
+  "cand_per_entity": 408.84185,
+  "by_country": {
+   "India": 0.9604396236729292,
+   "US": 0.9872448979591837
+  },
+  "config": "all passes (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9724777265966817,
+  "tp": 67347,
+  "fn": 1906,
+  "complete_entities": 0.9177958924412449,
+  "candidates": 7940392,
+  "cand_per_entity": 397.0196,
+  "by_country": {
+   "India": 0.959087378082113,
+   "US": 0.985969387755102
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9724777265966817,
+  "tp": 67347,
+  "fn": 1906,
+  "complete_entities": 0.9177958924412449,
+  "candidates": 7940392,
+  "cand_per_entity": 397.0196,
+  "by_country": {
+   "India": 0.959087378082113,
+   "US": 0.985969387755102
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.02
+ },
+ {
+  "recall": 0.9724777265966817,
+  "tp": 67347,
+  "fn": 1906,
+  "complete_entities": 0.9177958924412449,
+  "candidates": 7940392,
+  "cand_per_entity": 397.0196,
+  "by_country": {
+   "India": 0.959087378082113,
+   "US": 0.985969387755102
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.05
+ },
+ {
+  "recall": 0.9724777265966817,
+  "tp": 67347,
+  "fn": 1906,
+  "complete_entities": 0.9177958924412449,
+  "candidates": 7940392,
+  "cand_per_entity": 397.0196,
+  "by_country": {
+   "India": 0.959087378082113,
+   "US": 0.985969387755102
+  },
+  "config": "name+addr (33)",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.1
+ },
+ {
+  "recall": 0.9762465163964016,
+  "tp": 67608,
+  "fn": 1645,
+  "complete_entities": 0.9292293034088503,
+  "candidates": 5115901,
+  "cand_per_entity": 255.79505,
+  "by_country": {
+   "India": 0.9597778864689127,
+   "US": 0.9928397495361782
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9762465163964016,
+  "tp": 67608,
+  "fn": 1645,
+  "complete_entities": 0.9292293034088503,
+  "candidates": 5100927,
+  "cand_per_entity": 255.04635,
+  "by_country": {
+   "India": 0.9597778864689127,
+   "US": 0.9928397495361782
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.3
+ },
+ {
+  "recall": 0.9753368085137106,
+  "tp": 67545,
+  "fn": 1708,
+  "complete_entities": 0.9262121532923989,
+  "candidates": 4682151,
+  "cand_per_entity": 234.10755,
+  "by_country": {
+   "India": 0.9586845815231464,
+   "US": 0.9921150278293135
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.4
+ },
+ {
+  "recall": 0.9696042048719911,
+  "tp": 67148,
+  "fn": 2105,
+  "complete_entities": 0.9100148210882913,
+  "candidates": 3680024,
+  "cand_per_entity": 184.0012,
+  "by_country": {
+   "India": 0.9514342434617488,
+   "US": 0.9879116419294991
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.5
+ },
+ {
+  "recall": 0.9561029847082437,
+  "tp": 66213,
+  "fn": 3040,
+  "complete_entities": 0.8726445056108406,
+  "candidates": 2545408,
+  "cand_per_entity": 127.2704,
+  "by_country": {
+   "India": 0.9359841183071036,
+   "US": 0.9763740723562152
+  },
+  "config": "combo+name+addr (33)",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.6
+ },
+ {
+  "recall": 0.9770984650484456,
+  "tp": 67667,
+  "fn": 1586,
+  "complete_entities": 0.9319288587762016,
+  "candidates": 5450739,
+  "cand_per_entity": 272.53695,
+  "by_country": {
+   "India": 0.961130132059729,
+   "US": 0.9931876159554731
+  },
+  "config": "ALL",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9659509335335653,
+  "tp": 66895,
+  "fn": 2358,
+  "complete_entities": 0.9011221681134872,
+  "candidates": 4293422,
+  "cand_per_entity": 214.6711,
+  "by_country": {
+   "India": 0.948355726903933,
+   "US": 0.98367926716141
+  },
+  "config": "  without combo_33",
+  "passes": [
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9734451937100198,
+  "tp": 67414,
+  "fn": 1839,
+  "complete_entities": 0.9201249206013127,
+  "candidates": 4044174,
+  "cand_per_entity": 202.2087,
+  "by_country": {
+   "India": 0.9547717006646144,
+   "US": 0.9922599721706865
+  },
+  "config": "  without name_33",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9726510042886228,
+  "tp": 67359,
+  "fn": 1894,
+  "complete_entities": 0.920019055684946,
+  "candidates": 4142859,
+  "cand_per_entity": 207.14295,
+  "by_country": {
+   "India": 0.9543689041056478,
+   "US": 0.9910714285714286
+  },
+  "config": "  without addr_33",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9768963077411809,
+  "tp": 67653,
+  "fn": 1600,
+  "complete_entities": 0.9315053991107347,
+  "candidates": 5186302,
+  "cand_per_entity": 259.3151,
+  "by_country": {
+   "India": 0.9608136490491124,
+   "US": 0.9931006493506493
+  },
+  "config": "  without sorted_token",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9764486737036663,
+  "tp": 67622,
+  "fn": 1631,
+  "complete_entities": 0.9296527630743172,
+  "candidates": 5380338,
+  "cand_per_entity": 269.0169,
+  "by_country": {
+   "India": 0.9600943694795293,
+   "US": 0.9929267161410018
+  },
+  "config": "  without rare_token",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9340389586010714,
+  "tp": 64685,
+  "fn": 4568,
+  "complete_entities": 0.8158479779800974,
+  "candidates": 400000,
+  "cand_per_entity": 20.0,
+  "by_country": {
+   "India": 0.8926547170354173,
+   "US": 0.9757363172541744
+  },
+  "config": "combo",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9499083072213478,
+  "tp": 65784,
+  "fn": 3469,
+  "complete_entities": 0.8556531865339826,
+  "candidates": 1000000,
+  "cand_per_entity": 50.0,
+  "by_country": {
+   "India": 0.9154702649825934,
+   "US": 0.9846069109461967
+  },
+  "config": "combo",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9590631452789049,
+  "tp": 66418,
+  "fn": 2835,
+  "complete_entities": 0.880107982214694,
+  "candidates": 2000000,
+  "cand_per_entity": 100.0,
+  "by_country": {
+   "India": 0.9291941191702391,
+   "US": 0.9891581632653061
+  },
+  "config": "combo",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9554387535558027,
+  "tp": 66167,
+  "fn": 3086,
+  "complete_entities": 0.8705272072835063,
+  "candidates": 1633786,
+  "cand_per_entity": 81.6893,
+  "by_country": {
+   "India": 0.9233535690652243,
+   "US": 0.9877666975881262
+  },
+  "config": "combo+addr",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9696475242949764,
+  "tp": 67151,
+  "fn": 2102,
+  "complete_entities": 0.9117615922083422,
+  "candidates": 2522731,
+  "cand_per_entity": 126.13655,
+  "by_country": {
+   "India": 0.9494778030324826,
+   "US": 0.9899698515769945
+  },
+  "config": "combo+name+addr",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9762465163964016,
+  "tp": 67608,
+  "fn": 1645,
+  "complete_entities": 0.9292293034088503,
+  "candidates": 5115901,
+  "cand_per_entity": 255.79505,
+  "by_country": {
+   "India": 0.9597778864689127,
+   "US": 0.9928397495361782
+  },
+  "config": "combo+name+addr",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9770984650484456,
+  "tp": 67667,
+  "fn": 1586,
+  "complete_entities": 0.9319288587762016,
+  "candidates": 5450739,
+  "cand_per_entity": 272.53695,
+  "by_country": {
+   "India": 0.961130132059729,
+   "US": 0.9931876159554731
+  },
+  "config": "ALL",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.9822679161913563,
+  "tp": 68025,
+  "fn": 1228,
+  "complete_entities": 0.9461147575693415,
+  "candidates": 10468783,
+  "cand_per_entity": 523.43915,
+  "by_country": {
+   "India": 0.9699628851742095,
+   "US": 0.9946660482374768
+  },
+  "config": "ALL",
+  "passes": [
+   "combo_33_s2",
+   "combo_33_s3",
+   "name_33_s2",
+   "name_33_s3",
+   "addr_33_s2",
+   "addr_33_s3",
+   "sorted_token_s2",
+   "sorted_token_s3",
+   "rare_token_s2",
+   "rare_token_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ }
+]

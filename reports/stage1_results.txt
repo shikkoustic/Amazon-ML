@@ -1,0 +1,122 @@
+
+======================================================================================
+  PHASE 0  load and sample
+======================================================================================
+[    7.3s] ground truth: 2,206,821 entities
+[   10.2s] source1 cache: 2,206,821 rows
+[   11.8s] queries sampled: 20,000  India=10,000, US=10,000
+[   30.4s] source2: 5,034,616 rows, resolved 33,699 truth ids, 0 missing
+[   54.2s] source3: 5,285,603 rows, resolved 35,554 truth ids, 0 missing
+[   54.2s] true pairs among sampled queries: 69,253
+
+======================================================================================
+  PHASE 1  run passes (index built once, queried at K=100)
+======================================================================================
+[   54.6s]     name_33_s2__India                  RESUMED   1,000,000 pairs
+[   56.0s]     addr_33_s2__India                  RESUMED   1,000,000 pairs
+[   58.2s]     combo_33_s2__India                 RESUMED   1,000,000 pairs
+[   59.3s]     sorted_token_s2__India             RESUMED     106,409 pairs
+[   59.3s]     rare_token_s2__India               RESUMED      40,629 pairs
+[   60.2s]     name_33_s2__US                     RESUMED   1,000,000 pairs
+[   61.8s]     addr_33_s2__US                     RESUMED   1,000,000 pairs
+[   64.3s]     combo_33_s2__US                    RESUMED   1,000,000 pairs
+[   65.3s]     sorted_token_s2__US                RESUMED     216,050 pairs
+[   65.3s]     rare_token_s2__US                  RESUMED      27,132 pairs
+[   67.2s]     name_33_s3__India                  RESUMED   1,000,000 pairs
+[   68.5s]     addr_33_s3__India                  RESUMED   1,000,000 pairs
+[   70.3s]     combo_33_s3__India                 RESUMED   1,000,000 pairs
+[   71.3s]     sorted_token_s3__India             RESUMED     164,996 pairs
+[   71.3s]     rare_token_s3__India               RESUMED      39,749 pairs
+[   71.8s]     name_33_s3__US                     RESUMED   1,000,000 pairs
+[   73.2s]     addr_33_s3__US                     RESUMED   1,000,000 pairs
+[   75.2s]     combo_33_s3__US                    RESUMED   1,000,000 pairs
+[   76.2s]     sorted_token_s3__US                RESUMED     217,536 pairs
+[   76.2s]     rare_token_s3__US                  RESUMED      26,049 pairs
+[   78.3s]   pass name_33_s2          2,000,000 pairs
+[   78.3s]   pass addr_33_s2          2,000,000 pairs
+[   78.3s]   pass combo_33_s2         2,000,000 pairs
+[   78.3s]   pass sorted_token_s2       322,459 pairs
+[   78.3s]   pass rare_token_s2          67,761 pairs
+[   78.3s]   pass name_33_s3          2,000,000 pairs
+[   78.3s]   pass addr_33_s3          2,000,000 pairs
+[   78.3s]   pass combo_33_s3         2,000,000 pairs
+[   78.3s]   pass sorted_token_s3       382,532 pairs
+[   78.3s]   pass rare_token_s3          65,798 pairs
+
+======================================================================================
+  PHASE 2  measured recall by configuration
+======================================================================================
+
+-- single passes, K sweep --
+  name only (33)                           k=10    sim>=0.0   recall=57.9787%  cand/ent=   20.0  India=51.103%  US=64.906%
+  addr only (33)                           k=10    sim>=0.0   recall=83.4375%  cand/ent=   20.0  India=80.436%  US=86.462%
+  name only (33)                           k=25    sim>=0.0   recall=64.8405%  cand/ent=   50.0  India=58.270%  US=71.460%
+  addr only (33)                           k=25    sim>=0.0   recall=86.6056%  cand/ent=   50.0  India=83.540%  US=89.694%
+  name only (33)                           k=50    sim>=0.0   recall=69.7255%  cand/ent=  100.0  India=63.469%  US=76.029%
+  addr only (33)                           k=50    sim>=0.0   recall=88.0698%  cand/ent=  100.0  India=85.255%  US=90.906%
+  name only (33)                           k=100   sim>=0.0   recall=73.7643%  cand/ent=  200.0  India=66.956%  US=80.624%
+  addr only (33)                           k=100   sim>=0.0   recall=89.4907%  cand/ent=  200.0  India=87.111%  US=91.889%
+
+-- combined name+address field --
+  combo only (33)                          k=10    sim>=0.0   recall=93.4039%  cand/ent=   20.0  India=89.265%  US=97.574%
+  combo only (33)                          k=25    sim>=0.0   recall=94.9908%  cand/ent=   50.0  India=91.547%  US=98.461%
+  combo only (33)                          k=50    sim>=0.0   recall=95.9063%  cand/ent=  100.0  India=92.919%  US=98.916%
+  combo only (33)                          k=100   sim>=0.0   recall=96.6557%  cand/ent=  200.0  India=94.111%  US=99.220%
+  combo+name+addr (33)                     k=10    sim>=0.0   recall=95.7764%  cand/ent=   48.0  India=93.075%  US=98.498%
+  combo+addr (33)                          k=10    sim>=0.0   recall=94.1432%  cand/ent=   31.4  India=90.157%  US=98.159%
+  combo+name+addr (33)                     k=25    sim>=0.0   recall=96.9648%  cand/ent=  126.1  India=94.948%  US=98.997%
+  combo+addr (33)                          k=25    sim>=0.0   recall=95.5439%  cand/ent=   81.7  India=92.335%  US=98.777%
+  combo+name+addr (33)                     k=50    sim>=0.0   recall=97.6247%  cand/ent=  255.8  India=95.978%  US=99.284%
+  combo+addr (33)                          k=50    sim>=0.0   recall=96.3612%  cand/ent=  165.4  India=93.610%  US=99.133%
+  EVERYTHING (33)                          k=25    sim>=0.0   recall=97.1640%  cand/ent=  149.9  India=95.279%  US=99.064%
+  EVERYTHING (33)                          k=50    sim>=0.0   recall=97.7098%  cand/ent=  272.5  India=96.113%  US=99.319%
+
+-- name + address union, K sweep --
+  name+addr (33)                           k=10    sim>=0.0   recall=92.8884%  cand/ent=   37.9  India=90.137%  US=95.660%
+  name+addr (33)                           k=25    sim>=0.0   recall=95.0760%  cand/ent=   97.5  India=92.827%  US=97.342%
+  name+addr (33)                           k=50    sim>=0.0   recall=96.3164%  cand/ent=  197.3  India=94.600%  US=98.046%
+  name+addr (33)                           k=100   sim>=0.0   recall=97.2478%  cand/ent=  397.0  India=95.909%  US=98.597%
+
+-- with cheap key passes --
+  all passes (33)                          k=25    sim>=0.0   recall=95.7648%  cand/ent=  121.9  India=93.642%  US=97.904%
+  all passes (33)                          k=50    sim>=0.0   recall=96.5951%  cand/ent=  214.7  India=94.836%  US=98.368%
+  all passes (33)                          k=100   sim>=0.0   recall=97.3792%  cand/ent=  408.8  India=96.044%  US=98.724%
+
+-- similarity floor at k=100 --
+  name+addr (33)                           k=100   sim>=0.0   recall=97.2478%  cand/ent=  397.0  India=95.909%  US=98.597%
+  name+addr (33)                           k=100   sim>=0.02  recall=97.2478%  cand/ent=  397.0  India=95.909%  US=98.597%
+  name+addr (33)                           k=100   sim>=0.05  recall=97.2478%  cand/ent=  397.0  India=95.909%  US=98.597%
+  name+addr (33)                           k=100   sim>=0.1   recall=97.2478%  cand/ent=  397.0  India=95.909%  US=98.597%
+
+-- similarity floor, meaningful range --
+  combo+name+addr (33)                     k=50    sim>=0.0   recall=97.6247%  cand/ent=  255.8  India=95.978%  US=99.284%
+  combo+name+addr (33)                     k=50    sim>=0.3   recall=97.6247%  cand/ent=  255.0  India=95.978%  US=99.284%
+  combo+name+addr (33)                     k=50    sim>=0.4   recall=97.5337%  cand/ent=  234.1  India=95.868%  US=99.212%
+  combo+name+addr (33)                     k=50    sim>=0.5   recall=96.9604%  cand/ent=  184.0  India=95.143%  US=98.791%
+  combo+name+addr (33)                     k=50    sim>=0.6   recall=95.6103%  cand/ent=  127.3  India=93.598%  US=97.637%
+
+-- ablation: contribution of each pass --
+  ALL                                      k=50    sim>=0.0   recall=97.7098%  cand/ent=  272.5  India=96.113%  US=99.319%
+    without combo_33                       k=50    sim>=0.0   recall=96.5951%  cand/ent=  214.7  India=94.836%  US=98.368%
+      -> combo_33       contributes +1.1148% recall for   57.9 cand/entity
+    without name_33                        k=50    sim>=0.0   recall=97.3445%  cand/ent=  202.2  India=95.477%  US=99.226%
+      -> name_33        contributes +0.3653% recall for   70.3 cand/entity
+    without addr_33                        k=50    sim>=0.0   recall=97.2651%  cand/ent=  207.1  India=95.437%  US=99.107%
+      -> addr_33        contributes +0.4447% recall for   65.4 cand/entity
+    without sorted_token                   k=50    sim>=0.0   recall=97.6896%  cand/ent=  259.3  India=96.081%  US=99.310%
+      -> sorted_token   contributes +0.0202% recall for   13.2 cand/entity
+    without rare_token                     k=50    sim>=0.0   recall=97.6449%  cand/ent=  269.0  India=96.009%  US=99.293%
+      -> rare_token     contributes +0.0650% recall for    3.5 cand/entity
+
+-- efficiency frontier: recall per candidate --
+  combo                                    k=10    sim>=0.0   recall=93.4039%  cand/ent=   20.0  India=89.265%  US=97.574%
+  combo                                    k=25    sim>=0.0   recall=94.9908%  cand/ent=   50.0  India=91.547%  US=98.461%
+  combo                                    k=50    sim>=0.0   recall=95.9063%  cand/ent=  100.0  India=92.919%  US=98.916%
+  combo+addr                               k=25    sim>=0.0   recall=95.5439%  cand/ent=   81.7  India=92.335%  US=98.777%
+  combo+name+addr                          k=25    sim>=0.0   recall=96.9648%  cand/ent=  126.1  India=94.948%  US=98.997%
+  combo+name+addr                          k=50    sim>=0.0   recall=97.6247%  cand/ent=  255.8  India=95.978%  US=99.284%
+  ALL                                      k=50    sim>=0.0   recall=97.7098%  cand/ent=  272.5  India=96.113%  US=99.319%
+  ALL                                      k=100   sim>=0.0   recall=98.2268%  cand/ent=  523.4  India=96.996%  US=99.467%
+[  265.4s] 
+wrote /home/user/Amazon-ML/reports/stage1_experiments.json
+[  265.4s] done in 265s
