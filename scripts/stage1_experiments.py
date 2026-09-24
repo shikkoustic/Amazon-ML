@@ -35,9 +35,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.normalize import sorted_tokens  # noqa: E402
 
 CACHE = Path("/home/user/Amazon-ML/data/interim")
+PASSES = CACHE / "passes"          # one .npz per completed pass, so an
+PASSES.mkdir(parents=True, exist_ok=True)   # interrupted run resumes instead
+                                             # of repeating hours of work
 DATA = Path("/home/user/Amazon-ML/data/raw/student_resource/dataset")
 REPORTS = Path("/home/user/Amazon-ML/reports")
 T0 = time.time()
+
+
+def save_pass(key: str, rows, cols, sims) -> None:
+    """Persist a completed pass. Written to .tmp then renamed, so a kill
+    mid-write cannot leave a partial file that looks complete."""
+    # numpy appends .npz when the name lacks it, so the temp name must
+    # already end in .npz or the rename target will not exist
+    tmp = PASSES / f".{key}.tmp.npz"
+    np.savez_compressed(tmp, rows=rows, cols=cols,
+                        sims=np.empty(0, np.float32) if sims is None else sims,
+                        has_sims=np.array([sims is not None]))
+    tmp.rename(PASSES / f"{key}.npz")
+
+
+def load_pass(key: str):
+    f = PASSES / f"{key}.npz"
+    if not f.exists():
+        return None
+    d = np.load(f)
+    return (d["rows"], d["cols"], d["sims"] if bool(d["has_sims"][0]) else None)
 
 
 def log(m: str = "") -> None:
@@ -367,29 +390,50 @@ def main() -> None:
                 idx_text = [d[icol][i] for i in idx_pos]
                 qt = [qcol[i] for i in qsel]
                 for ng in ngram_opts:
-                    r, c, s = tfidf_pass(idx_text, gids, qt, ng, args.top_n,
-                                         args.chunk, args.max_features,
-                                         f"S{src} {cty} {sig} {ng}")
-                    passes[f"{sig}_{ng[0]}{ng[1]}_s{src}"].append((qmap[r], c, s))
+                    ckey = f"{sig}_{ng[0]}{ng[1]}_s{src}__{cty}"
+                    cached = load_pass(ckey)
+                    if cached is not None:
+                        passes[f"{sig}_{ng[0]}{ng[1]}_s{src}"].append(cached)
+                        log(f"    {ckey:<34} RESUMED {cached[0].size:>11,} pairs")
+                        continue
+                    r, c, sm = tfidf_pass(idx_text, gids, qt, ng, args.top_n,
+                                          args.chunk, args.max_features,
+                                          f"S{src} {cty} {sig} {ng}")
+                    save_pass(ckey, qmap[r], c, sm)
+                    passes[f"{sig}_{ng[0]}{ng[1]}_s{src}"].append((qmap[r], c, sm))
                 del idx_text, qt
                 gc.collect()
 
             # cheap key passes, no similarity attached
-            st_idx = [sorted_tokens(d["name_key"][i]) for i in idx_pos]
-            st_q = [sorted_tokens(q_name[i]) for i in qsel]
-            r, c = exact_key_pass(st_idx, gids, st_q)
-            passes[f"sorted_token_s{src}"].append((qmap[r], c, None))
-            log(f"    {'S%d %s sorted-token' % (src, cty):<26} pairs={r.size:>11,}")
-            del st_idx, st_q
-            gc.collect()
+            ckey = f"sorted_token_s{src}__{cty}"
+            cached = load_pass(ckey)
+            if cached is not None:
+                passes[f"sorted_token_s{src}"].append(cached)
+                log(f"    {ckey:<34} RESUMED {cached[0].size:>11,} pairs")
+            else:
+                st_idx = [sorted_tokens(d["name_key"][i]) for i in idx_pos]
+                st_q = [sorted_tokens(q_name[i]) for i in qsel]
+                r, c = exact_key_pass(st_idx, gids, st_q)
+                save_pass(ckey, qmap[r], c, None)
+                passes[f"sorted_token_s{src}"].append((qmap[r], c, None))
+                log(f"    {ckey:<34} pairs={r.size:>11,}")
+                del st_idx, st_q
+                gc.collect()
 
-            rt_idx = [d["name_key"][i] for i in idx_pos]
-            rt_q = [q_name[i] for i in qsel]
-            r, c = rare_token_pass(rt_idx, gids, rt_q, max_df=40, cap_per_query=60)
-            passes[f"rare_token_s{src}"].append((qmap[r], c, None))
-            log(f"    {'S%d %s rare-token' % (src, cty):<26} pairs={r.size:>11,}")
-            del rt_idx, rt_q
-            gc.collect()
+            ckey = f"rare_token_s{src}__{cty}"
+            cached = load_pass(ckey)
+            if cached is not None:
+                passes[f"rare_token_s{src}"].append(cached)
+                log(f"    {ckey:<34} RESUMED {cached[0].size:>11,} pairs")
+            else:
+                rt_idx = [d["name_key"][i] for i in idx_pos]
+                rt_q = [q_name[i] for i in qsel]
+                r, c = rare_token_pass(rt_idx, gids, rt_q, max_df=40, cap_per_query=60)
+                save_pass(ckey, qmap[r], c, None)
+                passes[f"rare_token_s{src}"].append((qmap[r], c, None))
+                log(f"    {ckey:<34} pairs={r.size:>11,}")
+                del rt_idx, rt_q
+                gc.collect()
 
         del index_data[src], d
         gc.collect()
@@ -425,8 +469,11 @@ def main() -> None:
                     out.append(key)
         return out
 
-    def run(label: str, groups: list[str], k: int | None, min_sim: float) -> dict:
+    def run(label: str, groups: list[str], k: int | None, min_sim: float):
         keys = expand(groups)
+        if not keys:
+            # a configuration whose passes were not run is absent, not 0% recall
+            return None
         sel = [merged[x] for x in keys]
         cand = build_cand_keys(sel, k, min_sim)
         m = evaluate_keys(cand, truth_keys, truth_q, q_country, n_q, truth_counts)
@@ -463,12 +510,16 @@ def main() -> None:
 
     print("\n-- ablation: what does each pass contribute at k=25? --", flush=True)
     full = ["name_24", "addr_24", "sorted_token", "rare_token"]
+    full = [g for g in full if expand([g])]
     base = run("ALL", full, 25, 0.0)
-    for drop in full:
-        kept = [x for x in full if x != drop]
-        m = run(f"  without {drop}", kept, 25, 0.0)
-        print(f"      -> dropping {drop:<14} costs {base['recall']-m['recall']:+.4%} recall, "
-              f"saves {base['cand_per_entity']-m['cand_per_entity']:6.1f} cand/entity", flush=True)
+    if base:
+        for drop in full:
+            kept = [x for x in full if x != drop]
+            m = run(f"  without {drop}", kept, 25, 0.0)
+            if m:
+                print(f"      -> dropping {drop:<14} costs {base['recall']-m['recall']:+.4%} "
+                      f"recall, saves {base['cand_per_entity']-m['cand_per_entity']:6.1f} "
+                      f"cand/entity", flush=True)
 
     REPORTS.mkdir(exist_ok=True)
     (REPORTS / args.out).write_text(json.dumps(results, indent=1, default=str))
