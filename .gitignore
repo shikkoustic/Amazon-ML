@@ -1,0 +1,50 @@
+# Data — never commit competition data
+data/
+!data/.gitkeep
+!data/**/.gitkeep
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.zip
+*.gz
+*.7z
+
+# Models & artifacts
+models/
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.bin
+*.onnx
+submissions/*.csv
+!submissions/.gitkeep
+
+# Images / media downloads
+images/
+*.jpg
+*.jpeg
+*.png
+!reports/**/*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Secrets
+.env
+kaggle.json
+*.pem
+.aws/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
