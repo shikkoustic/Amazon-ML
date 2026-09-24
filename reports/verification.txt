@@ -1,0 +1,84 @@
+==============================================================================
+  A. GROUND TRUTH INTEGRITY  (full data)
+==============================================================================
+  [PASS] no duplicate ids within a ground-truth row  -- 0 rows affected
+  [PASS] all matched ids are S2- or S3-  -- 0 bad
+  [PASS] no duplicate source1 rows  -- 2,206,821 rows
+
+  total matched id slots : 7,638,365
+  distinct matched ids   : 7,638,365
+  [PASS] each S2/S3 record matches AT MOST ONE S1 entity (exclusivity)  -- one-to-many structure
+
+[20s]
+
+==============================================================================
+  B. REFERENTIAL INTEGRITY + COUNTRY AGREEMENT  (full data, every pair)
+==============================================================================
+  [PASS] every ground-truth source1_entity_id exists in train_source1  -- 0 missing
+  [PASS] every matched id exists in train_source2/3  -- 0 dangling
+  [PASS] matched records ALWAYS share a country (all 7.6M pairs)  -- 0 of 7,638,365 pairs differ
+
+  verified 7,638,365 true pairs (not a sample)
+
+[63s]
+
+==============================================================================
+  C. WHAT IS IN THE 'other' SCRIPT BUCKET?  (full scan of source2/3)
+==============================================================================
+
+  train_source2 (5,034,616 names):
+     latin           4,572,275  90.817%
+     devanagari        262,432  5.213%
+     telugu             38,321  0.761%
+     kannada            36,298  0.721%
+     tamil              32,880  0.653%
+     gujarati           30,139  0.599%
+     bengali            29,953  0.595%
+     malayalam          18,324  0.364%
+     oriya               7,297  0.145%
+     gurmukhi            6,503  0.129%
+
+  train_source3 (5,285,603 names):
+     latin           5,029,588  95.156%
+     devanagari        144,851  2.740%
+     telugu             21,074  0.399%
+     kannada            20,196  0.382%
+     tamil              18,214  0.345%
+     bengali            16,700  0.316%
+     gujarati           16,543  0.313%
+     malayalam          10,244  0.194%
+     oriya               3,982  0.075%
+     gurmukhi            3,788  0.072%
+
+  test_source2 (4,887,273 names):
+     latin           4,353,922  89.087%
+     devanagari        301,491  6.169%
+     telugu             44,018  0.901%
+     kannada            42,840  0.877%
+     tamil              37,987  0.777%
+     bengali            34,721  0.710%
+     gujarati           34,496  0.706%
+     malayalam          21,502  0.440%
+     oriya               8,463  0.173%
+     gurmukhi            7,722  0.158%
+
+  test_source3 (5,082,316 names):
+     latin           4,787,567  94.200%
+     devanagari        166,181  3.270%
+     telugu             24,412  0.480%
+     kannada            23,757  0.467%
+     tamil              21,002  0.413%
+     bengali            19,218  0.378%
+     gujarati           18,886  0.372%
+     malayalam          12,100  0.238%
+     oriya               4,691  0.092%
+     gurmukhi            4,264  0.084%
+
+[228s]
+
+==============================================================================
+  SUMMARY
+==============================================================================
+  all checks passed
+
+[228s total]
