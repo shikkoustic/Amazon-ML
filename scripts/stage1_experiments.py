@@ -263,9 +263,21 @@ def evaluate_keys(cand_keys: np.ndarray, truth_keys: np.ndarray,
         if tot:
             by_country[c] = float(hit_mask[sel].sum()) / tot
 
+    # Ceiling on the competition metric. Assume Stage 2 is perfect: it
+    # predicts exactly the true matches present among the candidates. Then
+    # precision is 1 and recall is hits/|truth| per entity, so
+    # F_0.5 = 1.25R/(0.25+R). Singletons score 1.0 by predicting nothing.
+    # Averaging over entities gives the best macro F_0.5 this blocking
+    # allows -- the real cap on the score, which pair recall only proxies.
+    r_per = np.where(truth_counts > 0, hits_per_q / np.maximum(truth_counts, 1), 0.0)
+    f05 = np.where(truth_counts == 0, 1.0,
+                   np.where(r_per > 0, 1.25 * r_per / (0.25 + r_per), 0.0))
+    max_f05 = float(f05.mean())
+
     return {
         "recall": tp / max(tp + fn, 1),
         "tp": tp, "fn": fn,
+        "max_macro_f05": max_f05,
         "complete_entities": complete,
         "candidates": int(cand_keys.size),
         "cand_per_entity": cand_keys.size / max(n_q, 1),
@@ -490,9 +502,9 @@ def main() -> None:
         m.update(config=label, passes=keys, k=k, min_sim=min_sim)
         results.append(m)
         bc = "  ".join(f"{c}={v:.3%}" for c, v in m["by_country"].items())
-        print(f"  {label:<40} k={str(k):<5} sim>={min_sim:<5} "
-              f"recall={m['recall']:8.4%}  cand/ent={m['cand_per_entity']:7.1f}  {bc}",
-              flush=True)
+        print(f"  {label:<34} k={str(k):<4} sim>={min_sim:<4} "
+              f"recall={m['recall']:8.4%} maxF05={m['max_macro_f05']:7.4f} "
+              f"cand/ent={m['cand_per_entity']:6.1f}  {bc}", flush=True)
         return m
 
     print("\n-- single passes, K sweep --", flush=True)
