@@ -1,0 +1,23 @@
+S1 with matches by country: {'US': 1249737, 'India': 833837}  [22s]
+
+========================================================================================================
+  1. PER-COUNTRY CEILING  (does the approach behave the same in both countries?)
+========================================================================================================
+  country = India            n= 146,492  name=81.41% addr=96.12% translit=95.56% +phon=98.18% | name|addr=99.998% all=100.000%
+  country = US               n= 147,167  name=98.46% addr=95.23% translit=98.46% +phon=98.65% | name|addr=100.000% all=100.000%
+  [66s]
+
+  gap between countries: 0.0020%  -> consistent, transfers well
+
+========================================================================================================
+  2. SEED STABILITY  (is the ceiling an artefact of one sample?)
+========================================================================================================
+  seed 0                     n= 110,136  name=91.57% addr=95.66% translit=97.38% +phon=98.50% | name|addr=99.994% all=99.999%
+  seed 1                     n= 110,271  name=91.69% addr=95.62% translit=97.33% +phon=98.51% | name|addr=99.997% all=100.000%
+  seed 2                     n= 110,034  name=91.65% addr=95.59% translit=97.39% +phon=98.56% | name|addr=99.999% all=100.000%
+  seed 3                     n= 109,916  name=91.56% addr=95.54% translit=97.31% +phon=98.51% | name|addr=99.998% all=100.000%
+  seed 4                     n= 109,995  name=91.50% addr=95.57% translit=97.27% +phon=98.48% | name|addr=99.999% all=100.000%
+
+  mean=99.9975%  stdev=0.00202%  min=99.9936%  max=99.9991%
+
+[149s total]
