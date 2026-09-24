@@ -75,13 +75,20 @@ def build(split: str, src: int, pool: Pool) -> None:
         return
     t = time.time()
     n = 0
-    writer = pq.ParquetWriter(out_path, SCHEMA, compression="zstd")
+    # write to a temp path and rename on success, so an interrupted run
+    # cannot leave a truncated file that the next run mistakes for complete
+    tmp_path = out_path.with_suffix(".parquet.tmp")
+    writer = pq.ParquetWriter(tmp_path, SCHEMA, compression="zstd")
     try:
         for res in pool.imap(process, chunks(src_path), chunksize=1):
             writer.write_table(pa.Table.from_pydict(res, schema=SCHEMA))
             n += len(res["entity_id"])
-    finally:
         writer.close()
+        tmp_path.rename(out_path)
+    except BaseException:
+        writer.close()
+        tmp_path.unlink(missing_ok=True)
+        raise
     mb = out_path.stat().st_size / 1024**2
     print(f"  {out_path.name}: {n:,} rows, {mb:.0f} MB, {time.time()-t:.0f}s", flush=True)
 
