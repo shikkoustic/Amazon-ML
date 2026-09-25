@@ -11,6 +11,7 @@ times 100 candidates, so a feature costing a millisecond costs two days.
 """
 from __future__ import annotations
 
+import functools
 import re
 
 import numpy as np
@@ -66,6 +67,7 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
     g1n, g2n = ngrams(n1), ngrams(n2)
     g1a, g2a = ngrams(a1), ngrams(a2)
     d1, d2 = set(DIGITS.findall(a1)), set(DIGITS.findall(a2))
+    r1, r2 = region_tokens(a1), region_tokens(a2)
 
     f = [
         # --- name ---
@@ -104,8 +106,117 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
         abs(len(t1n) - len(t2n)),
         float(not a1 or not a2),                    # an address is missing
         float(not n1 or not n2),
+
+        # --- region agreement ---
+        # "maharashtra" against "mh" is the single most common reason a true
+        # pair looks unlike itself. Comparing canonical region codes makes the
+        # two spellings the same evidence, and disagreement a real signal.
+        float(bool(r1 & r2)),
+        float(bool(r1) and bool(r2) and not (r1 & r2)),   # regions conflict
+        float(bool(r1) != bool(r2)),                      # only one names a region
+
+        # --- truncation and run-together tokens ---
+        prefix_overlap(t1a, t2a),
+        prefix_overlap(t1n, t2n),
+        prefix_overlap(d1, d2),
     ]
     return f
+
+
+# --- Region canonicalisation -------------------------------------------------
+# Addresses name the same region two ways, and the mismatch is the single
+# largest reason a true match is rejected: "maharashtra" against "mh",
+# "texas" against "tx", "california" against "ca". Measured on held-out
+# candidates, the eighteen most common such disagreements alone account for
+# about a fifth of every true pair the matcher throws away.
+#
+# This is a spelling table, in the same spirit as the legal-suffix list the
+# normaliser already applies. It maps a region's own names onto each other and
+# looks nothing up: no registry, no geocoder, no network.
+_REGIONS: dict[str, tuple[str, ...]] = {
+    # United States
+    "al": ("alabama",), "ak": ("alaska",), "az": ("arizona",), "ar": ("arkansas",),
+    "ca": ("california",), "co": ("colorado",), "ct": ("connecticut",),
+    "de": ("delaware",), "fl": ("florida",), "ga": ("georgia",), "hi": ("hawaii",),
+    "id": ("idaho",), "il": ("illinois",), "in": ("indiana",), "ia": ("iowa",),
+    "ks": ("kansas",), "ky": ("kentucky",), "la": ("louisiana",), "me": ("maine",),
+    "md": ("maryland",), "ma": ("massachusetts",), "mi": ("michigan",),
+    "mn": ("minnesota",), "ms": ("mississippi",), "mo": ("missouri",),
+    "mt": ("montana",), "ne": ("nebraska",), "nv": ("nevada",),
+    "nh": ("new hampshire",), "nj": ("new jersey",), "nm": ("new mexico",),
+    "ny": ("new york",), "nc": ("north carolina",), "nd": ("north dakota",),
+    "oh": ("ohio",), "ok": ("oklahoma",), "or": ("oregon",),
+    "pa": ("pennsylvania",), "ri": ("rhode island",), "sc": ("south carolina",),
+    "sd": ("south dakota",), "tn": ("tennessee",), "tx": ("texas",),
+    "ut": ("utah",), "vt": ("vermont",), "va": ("virginia",), "wa": ("washington",),
+    "wv": ("west virginia",), "wi": ("wisconsin",), "wy": ("wyoming",),
+    "dc": ("district of columbia",),
+    # India
+    "mh": ("maharashtra",), "dl": ("delhi", "new delhi"), "ka": ("karnataka",),
+    "tn_in": ("tamil nadu",), "up": ("uttar pradesh",), "gj": ("gujarat",),
+    "rj": ("rajasthan",), "wb": ("west bengal",), "ap": ("andhra pradesh",),
+    "ts": ("telangana",), "kl": ("kerala",), "mp": ("madhya pradesh",),
+    "br": ("bihar",), "pb": ("punjab",), "hr": ("haryana",), "or_in": ("odisha", "orissa"),
+    "jh": ("jharkhand",), "as": ("assam",), "cg": ("chhattisgarh",),
+    "uk_in": ("uttarakhand",), "hp": ("himachal pradesh",), "ga_in": ("goa",),
+    "jk": ("jammu kashmir",), "py": ("puducherry", "pondicherry"), "ch": ("chandigarh",),
+}
+_REGION_OF: dict[str, str] = {}
+for _code, _names in _REGIONS.items():
+    _canon = _code.split("_")[0]
+    _REGION_OF[_canon] = _canon
+    for _n in _names:
+        _REGION_OF[_n] = _canon
+        for _w in _n.split():
+            _REGION_OF.setdefault(_w, _canon)
+
+
+@functools.lru_cache(maxsize=200_000)
+def canon_region(tok: str) -> str:
+    """Region code for a token, tolerating the corpus's deliberate misspellings.
+
+    Exact hits cover the clean cases. The rest are matched by similarity,
+    because the data carries "masachusets", "ilinois", "tenese" and "mharastr"
+    as readily as the correct spellings, and a table of exact strings would
+    miss precisely the noisy pairs this exists to rescue.
+    """
+    if len(tok) < 2:
+        return ""
+    hit = _REGION_OF.get(tok)
+    if hit:
+        return hit
+    if len(tok) < 4:
+        return ""
+    best, score = "", 0.0
+    for name, code in _REGION_OF.items():
+        if len(name) < 4 or abs(len(name) - len(tok)) > 3 or name[0] != tok[0]:
+            continue
+        r = fuzz.ratio(tok, name) / 100.0
+        if r > score:
+            best, score = code, r
+    return best if score >= 0.82 else ""
+
+
+def region_tokens(addr: str) -> frozenset[str]:
+    """Region codes mentioned anywhere in an address (usually the tail)."""
+    toks = addr.split()
+    return frozenset(filter(None, (canon_region(t) for t in toks[-3:])))
+
+
+def prefix_overlap(a: set[str], b: set[str]) -> float:
+    """Share of tokens matched only because one is a prefix of the other.
+
+    Catches the corpus's truncations and run-together tokens -- 743 against 74,
+    rialto against rialtocdp -- which exact token matching scores as complete
+    disagreement.
+    """
+    only_a, only_b = a - b, b - a
+    if not only_a or not only_b:
+        return 0.0
+    hit = sum(1 for x in only_a
+              if any((x.startswith(y) or y.startswith(x)) and min(len(x), len(y)) >= 3
+                     for y in only_b))
+    return hit / max(len(a | b), 1)
 
 
 FEATURE_NAMES = [
@@ -117,5 +228,7 @@ FEATURE_NAMES = [
     "num_jac", "num_shared", "num_exact", "num_onesided",
     "len_n1", "len_n2", "len_ratio", "tok_diff",
     "addr_missing", "name_missing",
+    "region_match", "region_conflict", "region_onesided",
+    "addr_prefix_overlap", "name_prefix_overlap", "num_prefix_overlap",
 ]
 assert len(FEATURE_NAMES) == len(pair_features("a b", "c d", "a b", "c d"))
