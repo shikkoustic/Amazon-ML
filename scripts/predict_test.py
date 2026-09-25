@@ -46,7 +46,8 @@ REL_NAMES = (
     + [f"{b}_gap_best" for b in REL_BASE]
     + [f"{b}_over_best" for b in REL_BASE]
     + [f"{b}_z" for b in REL_BASE]
-    + ["n_cands", "n_strong", "best_overall", "mean_overall", "is_argmax"]
+    + ["n_cands", "n_strong", "best_overall", "mean_overall", "is_argmax",
+       "addr_strong_n", "addr_strong_sole"]
 )
 N_SHARD = 16
 # Worker state. Set before the pool forks so children inherit the text map and
@@ -103,6 +104,16 @@ def relative_block(X: np.ndarray, bi: list[int]) -> np.ndarray:
     R[:, 4 * nb + 2] = key.max()
     R[:, 4 * nb + 3] = key.mean()
     R[:, 4 * nb + 4] = (np.arange(n) == int(np.argmax(key))).astype(np.float32)
+    # A near-exact address that no other candidate matches is much stronger
+    # evidence than one of several. Measured on held-out candidates where the
+    # name gives no support at all, being the sole such candidate runs 55%
+    # true against 10% for one of several -- not enough to predict on, which
+    # under F_0.5 needs near-certainty, but a 5.5x separation the model can
+    # combine with everything else. This is the trade-name case: the name is
+    # replaced outright and the address is all that is left.
+    strong = key >= 0.9
+    R[:, 4 * nb + 5] = float(strong.sum())
+    R[:, 4 * nb + 6] = (strong & (strong.sum() == 1)).astype(np.float32)
     return R
 
 
