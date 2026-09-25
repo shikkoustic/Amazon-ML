@@ -49,6 +49,10 @@ LIMIT = int(os.environ.get("LIMIT", 0))          # cap queries, for smoke tests
 # the two outputs merged. Each committed run starts from a clean container,
 # so the second run cannot resume the first one's checkpoints.
 SOURCES = tuple(int(x) for x in os.environ.get("SOURCES", "2,3").split(","))
+# Which text field to index. "combo" is name and address as one string and is
+# the strongest single signal; "name" and "addr" each add recall the combined
+# field misses, and run as their own jobs so all of them finish in parallel.
+SIGNAL = os.environ.get("SIGNAL", "combo")
 
 import gc
 import re
@@ -109,7 +113,12 @@ def read_tsv(path: Path):
                 continue
             ids.append(p[0])
             cty.append(p[3])
-            key.append(blocking_key(p[1]) + " " + blocking_key(p[2]))
+            if SIGNAL == "name":
+                key.append(blocking_key(p[1]))
+            elif SIGNAL == "addr":
+                key.append(blocking_key(p[2]))
+            else:
+                key.append(blocking_key(p[1]) + " " + blocking_key(p[2]))
     return np.array(ids, dtype=object), np.array(cty), key
 
 
@@ -138,7 +147,7 @@ def main():
             isel = np.flatnonzero(i_cty == cty)
             if qsel.size == 0 or isel.size == 0:
                 continue
-            shard = work / f"s{src}__{cty}.npz"
+            shard = work / f"{SIGNAL}_s{src}__{cty}.npz"
             if shard.exists():
                 log(f"  s{src} {cty}: resumed")
                 z = np.load(shard, allow_pickle=True)
@@ -181,8 +190,7 @@ def main():
         gc.collect()
 
     tag = "".join(str(x) for x in SOURCES)
-    path = OUT / (f"candidate_pairs_s{tag}.tsv" if len(SOURCES) == 1
-                  else "candidate_pairs.tsv")
+    path = OUT / f"candidate_pairs_{SIGNAL}_s{tag}.tsv"
     total = 0
     with path.open("w", encoding="utf-8") as fh:
         fh.write("source1_entity_id\tcandidate_entity_ids\n")
