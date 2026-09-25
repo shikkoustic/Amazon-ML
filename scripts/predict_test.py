@@ -139,6 +139,22 @@ def shard_candidates(paths: list[Path], cty_of: dict[str, str],
     return shards
 
 
+def model_n_features(path: Path) -> int:
+    """Feature count straight from the model file.
+
+    Deliberately avoids importing lightgbm here. Loading a Booster initialises
+    LightGBM's OpenMP runtime, and forking a process whose OpenMP is already
+    up leaves the children deadlocked in OpenMP init -- parent busy, workers
+    pinned at zero CPU. The count is in the model's own header, so the parent
+    can check it and never touch the library.
+    """
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("max_feature_idx="):
+                return int(line.strip().split("=")[1]) + 1
+    raise ValueError(f"no max_feature_idx in {path}")
+
+
 def _init_worker(model_path: str) -> None:
     import lightgbm as lgb
     # One thread per worker: parallelism comes from the pool, and letting each
@@ -202,17 +218,20 @@ def main() -> None:
     if args.workers > 1 and (args.dump_candidates or args.dump_scores):
         sys.exit("--dump-candidates/--dump-scores need --workers 1: the dumps "
                  "are written in entity order by the single scoring loop")
-    import lightgbm as lgb
-    model = lgb.Booster(model_file=str(CACHE / args.model))
     # Exactly the training column order: build_relative writes
     # FEATURE_NAMES then REL_NAMES, and train_v2 filters DEAD out of that.
     built = FEATURE_NAMES + REL_NAMES
     feats = [f for f in built if f not in DEAD]
     keep_cols = np.array([i for i, f in enumerate(built) if f not in DEAD])
-    if model.num_feature() != len(feats):
-        sys.exit(f"model expects {model.num_feature()} features, this builds "
-                 f"{len(feats)} — wrong model, or the feature list has drifted")
+    n_feat = model_n_features(CACHE / args.model)
+    if n_feat != len(feats):
+        sys.exit(f"model expects {n_feat} features, this builds {len(feats)} "
+                 f"— wrong model, or the feature list has drifted")
     log(f"{len(feats)} features, order matched to training")
+    model = None
+    if args.workers == 1:
+        import lightgbm as lgb
+        model = lgb.Booster(model_file=str(CACHE / args.model))
     bi = [FEATURE_NAMES.index(b) for b in REL_BASE]
 
     s1 = pq.read_table(CACHE / f"{args.split}_source1.parquet",
