@@ -250,9 +250,23 @@ checkpointed, and has accumulated partial progress under
 
 ## 11. Open items for Stage 2
 1. **Exploit exclusivity** (§2) as a post-processing assignment step.
-2. **Tune the decision threshold for F_0.5, not F1.** Expected-value
-   analysis says add a further match only above ~0.67 confidence; re-derive
-   empirically.
+2. **Tune the decision threshold for F_0.5, not F1 — and make it
+   rank-aware.** `src/scoring.py` derives the break-even confidence for
+   adding one more match, and it is not a single number. It depends on how
+   many matches the entity already has:
+
+   | entity truth size | matches already predicted | add only above |
+   |---|---|---|
+   | 5 | 1 | 0.444 |
+   | 3 | 1 | 0.571 |
+   | 2 | 1 | 0.667 |
+   | 3 | 2 | 0.727 |
+   | any | all of them | 0.800 |
+
+   So be liberal on an entity's first match and progressively stricter
+   after. The 0.800 asymptote means adding to an already-complete
+   prediction is almost never worth it. A flat cut-off — and certainly the
+   0.5 a classifier defaults to — leaves points on the table.
 3. **Build a singleton detector** — 5.58% of entities, each worth a full
    1.0, and any false positive on one costs the entire point.
 4. **Score the un-phonetically-folded forms.** The folding trades precision
