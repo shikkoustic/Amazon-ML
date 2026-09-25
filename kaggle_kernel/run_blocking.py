@@ -44,6 +44,11 @@ K = int(os.environ.get("K", 50))
 MAX_DF = float(os.environ.get("MAX_DF", 0.05))
 CHUNK = int(os.environ.get("CHUNK", 20000))
 LIMIT = int(os.environ.get("LIMIT", 0))          # cap queries, for smoke tests
+# Which sources to search. The full job over both is about sixteen hours on
+# Kaggle, past the twelve-hour session cap, so it is run as "2" then "3" and
+# the two outputs merged. Each committed run starts from a clean container,
+# so the second run cannot resume the first one's checkpoints.
+SOURCES = tuple(int(x) for x in os.environ.get("SOURCES", "2,3").split(","))
 
 import gc
 import re
@@ -125,7 +130,7 @@ def main():
     log(f"source1: {len(q_ids):,} queries, countries={sorted(set(q_cty))}")
 
     cand: dict[int, set[str]] = {}
-    for src in (2, 3):
+    for src in SOURCES:
         i_ids, i_cty, i_key = read_tsv(D / f"{args.split}_source{src}.tsv")
         log(f"source{src}: {len(i_ids):,} rows")
         for cty in sorted(set(q_cty)):
@@ -175,7 +180,9 @@ def main():
         del i_ids, i_cty, i_key
         gc.collect()
 
-    path = OUT / "candidate_pairs.tsv"
+    tag = "".join(str(x) for x in SOURCES)
+    path = OUT / (f"candidate_pairs_s{tag}.tsv" if len(SOURCES) == 1
+                  else "candidate_pairs.tsv")
     total = 0
     with path.open("w", encoding="utf-8") as fh:
         fh.write("source1_entity_id\tcandidate_entity_ids\n")
