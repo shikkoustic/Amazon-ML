@@ -49,6 +49,9 @@ REL_NAMES = (
     + ["n_cands", "n_strong", "best_overall", "mean_overall", "is_argmax"]
 )
 N_SHARD = 16
+# Worker state. Set before the pool forks so children inherit the text map and
+# IDF copy-on-write instead of each building its own several-GB copy.
+_W: dict = {}
 # Dropped in training as dead (AUC 0.500 -- no empty names exist), so the
 # model never saw it and the column must not be fed back in here.
 DEAD = {"name_missing"}
@@ -136,6 +139,46 @@ def shard_candidates(paths: list[Path], cty_of: dict[str, str],
     return shards
 
 
+def _init_worker(model_path: str) -> None:
+    import lightgbm as lgb
+    # One thread per worker: parallelism comes from the pool, and letting each
+    # worker also thread oversubscribes the cores and runs slower.
+    _W["model"] = lgb.Booster(model_file=model_path)
+
+
+def _score_shard(shard: str) -> tuple[str, list[str], int]:
+    """Score one shard. Returns its kept rows plus how many pairs were scored."""
+    text, idf = _W["text"], _W["idf"]
+    keep_cols, bi, thr = _W["keep_cols"], _W["bi"], _W["thr"]
+    model = _W["model"]
+    union: dict[str, set[str]] = collections.defaultdict(set)
+    with open(shard, encoding="utf-8") as fh:
+        for line in fh:
+            q, _, rest = line.rstrip("\n").partition("\t")
+            if rest:
+                union[q].update(x for x in rest.split(",") if x)
+    rows: list[str] = []
+    scored = 0
+    for q, cands in union.items():
+        a = text.get(q)
+        if a is None or not cands:
+            continue
+        cl = [c for c in cands if c in text]
+        if not cl:
+            continue
+        X = np.zeros((len(cl), len(FEATURE_NAMES)), np.float32)
+        for i, c in enumerate(cl):
+            b = text[c]
+            X[i] = pair_features(a[0], a[1], b[0], b[1], idf)
+        full = np.hstack([X, relative_block(X, bi)])[:, keep_cols]
+        p = model.predict(full, num_threads=1)
+        scored += len(cl)
+        keep = [cl[i] for i in np.flatnonzero(p >= thr)]
+        if keep:
+            rows.append(f"{q}\t{','.join(sorted(keep))}")
+    return shard, rows, scored
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidates", nargs="+", required=True,
@@ -151,8 +194,14 @@ def main() -> None:
                          "rules without recomputing features")
     ap.add_argument("--countries", nargs="*", default=None,
                     help="restrict to these countries (for validation runs)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="parallel scoring processes; forked after the text map "
+                         "is built so they share it copy-on-write")
     args = ap.parse_args()
 
+    if args.workers > 1 and (args.dump_candidates or args.dump_scores):
+        sys.exit("--dump-candidates/--dump-scores need --workers 1: the dumps "
+                 "are written in entity order by the single scoring loop")
     import lightgbm as lgb
     model = lgb.Booster(model_file=str(CACHE / args.model))
     # Exactly the training column order: build_relative writes
@@ -216,6 +265,29 @@ def main() -> None:
                 text[ids[i]] = (nm[i], ad[i])
             del t, ids, cc, nm, ad
         log(f"{cty}: text for {len(text):,} entities")
+
+        if args.workers > 1:
+            # Publish the shared state, then fork: children inherit text and
+            # idf copy-on-write, so four workers cost one copy, not four.
+            _W.update(text=text, idf=idf, keep_cols=keep_cols, bi=bi,
+                      thr=args.threshold)
+            import multiprocessing as mp
+            with mp.get_context("fork").Pool(
+                    args.workers, initializer=_init_worker,
+                    initargs=(str(CACHE / args.model),)) as pool:
+                for shard, rows, scored in pool.imap_unordered(
+                        _score_shard, [str(x) for x in paths]):
+                    n_pairs += scored
+                    for row in rows:
+                        q, _, ids = row.partition("\t")
+                        n_kept += ids.count(",") + 1
+                        predicted[q] = ids
+                    log(f"{Path(shard).name}: {scored:,} scored "
+                        f"(running {n_pairs:,} scored, {n_kept:,} kept)")
+                    Path(shard).unlink()
+            del text
+            _W.clear()
+            continue
 
         for sp in paths:
             union: dict[str, set[str]] = collections.defaultdict(set)
