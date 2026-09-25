@@ -146,6 +146,9 @@ def main() -> None:
     ap.add_argument("--out", default="/home/user/Amazon-ML/output/matching_results.tsv")
     ap.add_argument("--dump-candidates", default="",
                     help="also write the unioned candidate set here")
+    ap.add_argument("--dump-scores", default="",
+                    help="write every pair's score here, for sweeping decision "
+                         "rules without recomputing features")
     ap.add_argument("--countries", nargs="*", default=None,
                     help="restrict to these countries (for validation runs)")
     args = ap.parse_args()
@@ -192,6 +195,9 @@ def main() -> None:
     dump = open(args.dump_candidates, "w", encoding="utf-8") if args.dump_candidates else None
     if dump:
         dump.write("source1_entity_id\tcandidate_entity_ids\n")
+    sc = open(args.dump_scores, "w", encoding="utf-8") if args.dump_scores else None
+    if sc:
+        sc.write("source1_entity_id\tcandidate_entity_id\tscore\n")
 
     predicted: dict[str, str] = {}
     n_pairs = n_kept = 0
@@ -235,6 +241,9 @@ def main() -> None:
                 full = np.hstack([X, relative_block(X, bi)])[:, keep_cols]
                 p = model.predict(full, num_threads=4)
                 n_pairs += len(cl)
+                if sc:
+                    for i, c in enumerate(cl):
+                        sc.write(f"{q}\t{c}\t{p[i]:.6f}\n")
                 keep = [cl[i] for i in np.flatnonzero(p >= args.threshold)]
                 if keep:
                     n_kept += len(keep)
@@ -245,6 +254,8 @@ def main() -> None:
 
     if dump:
         dump.close()
+    if sc:
+        sc.close()
 
     # Every Source-1 entity gets a row. Singletons are an empty second field,
     # which is what scores 1.0 for them; omitting the row would not.
