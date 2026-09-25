@@ -16,6 +16,8 @@ import re
 
 import numpy as np
 from rapidfuzz import fuzz
+
+from .normalize import phonetic, skeleton
 from rapidfuzz.distance import JaroWinkler, Levenshtein
 
 DIGITS = re.compile(r"\d+")
@@ -116,6 +118,31 @@ def soft_idf_overlap(a: set[str], b: set[str], idf: dict[str, float]) -> float:
     return score / total
 
 
+
+def _digits_canon(toks: set[str]) -> set[str]:
+    """Numbers without leading zeros, so 06761 and 6761 are one number."""
+    return {t.lstrip("0") or "0" for t in toks}
+
+
+def _num_near(a: set[str], b: set[str]) -> float:
+    """Numbers that are close without being equal.
+
+    House numbers get a digit dropped or nudged -- 54 against 53, 743 against
+    74 -- and treating those as total disagreement discards the strongest
+    signal an address has, since numbers survive transliteration when words
+    do not.
+    """
+    if not a or not b:
+        return 0.0
+    hit = 0
+    for x in a - b:
+        for y in b - a:
+            if abs(len(x) - len(y)) <= 1 and Levenshtein.distance(x, y) <= 1:
+                hit += 1
+                break
+    return hit / max(len(a | b), 1)
+
+
 def pair_features(n1: str, a1: str, n2: str, a2: str,
                   idf: dict[str, float] | None = None) -> list[float]:
     """Feature vector for one candidate pair. Order matches FEATURE_NAMES."""
@@ -125,6 +152,8 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
     g1a, g2a = ngrams(a1), ngrams(a2)
     d1, d2 = set(DIGITS.findall(a1)), set(DIGITS.findall(a2))
     r1, r2 = region_tokens(a1), region_tokens(a2)
+    p1n, p2n = phonetic(n1), phonetic(n2)
+    k1n, k2n = skeleton(n1), skeleton(n2)
 
     f = [
         # --- name ---
@@ -163,6 +192,21 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
         abs(len(t1n) - len(t2n)),
         soft_idf_overlap(t1a, t2a, idf or {}),
         soft_idf_overlap(t1n, t2n, idf or {}),
+
+        # --- phonetic agreement ---
+        # Transliterated names come back spelled by sound, not by letter:
+        # "kelksi teknalji" is "galaxy technologies" read aloud. Comparing the
+        # phonetic forms is the only way those two look like each other.
+        jaccard(set(p1n.split()), set(p2n.split())),
+        float(p1n == p2n and bool(p1n)),
+        JaroWinkler.similarity(p1n, p2n),
+        jaccard(set(k1n.split()), set(k2n.split())),
+        JaroWinkler.similarity(k1n, k2n),
+        float(bool(k1n) and k1n == k2n),
+
+        # --- numbers, repaired ---
+        jaccard(_digits_canon(d1), _digits_canon(d2)),
+        _num_near(d1, d2),
         float(not a1 or not a2),                    # an address is missing
         float(not n1 or not n2),
 
@@ -287,6 +331,9 @@ FEATURE_NAMES = [
     "num_jac", "num_shared", "num_exact", "num_onesided",
     "len_n1", "len_n2", "len_ratio", "tok_diff",
     "addr_soft_idf", "name_soft_idf",
+    "name_phon_jac", "name_phon_exact", "name_phon_jw",
+    "name_skel_jac", "name_skel_jw", "name_skel_exact",
+    "num_jac_canon", "num_near",
     "addr_missing", "name_missing",
     "region_match", "region_conflict", "region_onesided",
     "addr_prefix_overlap", "name_prefix_overlap", "num_prefix_overlap",

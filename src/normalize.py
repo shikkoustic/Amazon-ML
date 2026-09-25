@@ -163,6 +163,36 @@ def phonetic(s: str) -> str:
     return s
 
 
+
+# Consonant skeleton. Transliterated names come back spelled by sound rather
+# than by letter -- "kelksi teknalji" is "galaxy technologies" read aloud --
+# so no amount of edit-distance on the written forms brings them together.
+# Dropping vowels and folding the consonants that trade places across scripts
+# leaves a skeleton the two spellings share.
+_SKEL_PAIRS = (("ph", "f"), ("ch", "k"), ("ck", "k"), ("sh", "s"),
+               ("th", "t"), ("gh", "g"), ("x", "ks"), ("qu", "k"))
+_SKEL_FOLD = str.maketrans({"c": "k", "q": "k", "g": "k", "j": "s", "z": "s",
+                            "w": "v", "y": "i"})
+_VOWELS = re.compile(r"[aeiou]")
+_RUNS = re.compile(r"(.)\1+")
+
+
+def skeleton(s: str) -> str:
+    """Vowel-free consonant form, for comparing spellings-by-sound."""
+    if not s:
+        return ""
+    out = []
+    for w in s.lower().split():
+        for a, b in _SKEL_PAIRS:
+            w = w.replace(a, b)
+        w = w.translate(_SKEL_FOLD)
+        w = _VOWELS.sub("", w)
+        w = _RUNS.sub(r"\1", w)
+        if w:
+            out.append(w)
+    return " ".join(out)
+
+
 def blocking_key(s: str | None) -> str:
     """The most aggressive form, used only to generate candidates."""
     return phonetic(normalize(s))
