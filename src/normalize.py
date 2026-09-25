@@ -28,6 +28,8 @@ import unicodedata
 
 from unidecode import unidecode
 
+from .variants import VARIANTS
+
 # Latin legal forms, plus the transliterated spellings observed coming out
 # of each Indic script once doubled letters are collapsed.
 LEGAL_SUFFIX = re.compile(
@@ -70,8 +72,57 @@ def is_null(s: str | None) -> bool:
     return s is None or s.strip().lower() in NULLISH
 
 
+
+# Confusable characters. The corpus substitutes digits for the letters they
+# resemble -- s0lutions, g1obal, techn0logies, 5olutions -- which leaves a
+# corrupted token sharing nothing with its clean form. Pure numbers are left
+# alone: house numbers and pincodes are real digits and among the strongest
+# signals there are.
+_CONFUSE = str.maketrans({"0": "o", "1": "l", "5": "s", "6": "g",
+                          "3": "e", "4": "a", "8": "b", "7": "t"})
+
+# The variant table is keyed on tokens as they look after doubled letters are
+# collapsed, so both sides of it are collapsed here rather than at each lookup.
+_VARIANTS = {DOUBLED.sub(r"\1", k): DOUBLED.sub(r"\1", v)
+             for k, v in VARIANTS.items()}
+
+
+def _unconfuse(tok: str) -> str:
+    if tok.isdigit() or not any(c.isdigit() for c in tok):
+        return tok
+    return tok.translate(_CONFUSE)
+
+
+def _singular(tok: str) -> str:
+    """Fold plurals so "technologies" and "technology" agree."""
+    if len(tok) > 5 and tok.endswith("ies"):
+        return tok[:-3] + "y"
+    if len(tok) > 4 and tok.endswith("s") and not tok.endswith("ss"):
+        return tok[:-1]
+    return tok
+
+
+def canon_token(tok: str) -> str:
+    """One spelling per meaning: rd and road, mh and maharashtra, s0lutions.
+
+    Followed to a fixed point rather than applied a fixed number of times,
+    because clusters chain -- rd to road to the cluster's own canonical form --
+    and stopping early would land two spellings of one word on different
+    tokens, which is the whole failure this exists to prevent.
+    """
+    t = _unconfuse(tok)
+    for _ in range(4):
+        nxt = _singular(_VARIANTS.get(t, t))
+        nxt = _VARIANTS.get(nxt, nxt)
+        if nxt == t:
+            break
+        t = nxt
+    return t
+
+
 def normalize(s: str | None, *, translit: bool = True, collapse: bool = True,
-              drop_legal: bool = True, drop_stop: bool = True) -> str:
+              drop_legal: bool = True, drop_stop: bool = True,
+              canon: bool = True) -> str:
     """Canonical form used for both indexing and querying.
 
     Never returns empty for a non-null input: if suffix removal would
@@ -88,6 +139,8 @@ def normalize(s: str | None, *, translit: bool = True, collapse: bool = True,
     if collapse:
         s = DOUBLED.sub(r"\1", s)
     before = MULTISPACE.sub(" ", s).strip()
+    if canon:
+        before = " ".join(canon_token(t) for t in before.split())
 
     out = before
     if drop_legal:
