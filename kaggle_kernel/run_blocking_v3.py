@@ -22,9 +22,29 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from unidecode import unidecode
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sparse_dot_topn import sp_matmul_topn
+
+
+def _require(module, package=None):
+    """Import a module, installing it first if the image lacks it.
+
+    Kaggle's script images are leaner than its notebook images: unidecode is
+    present in one and absent in the other, and a run that dies on the import
+    wastes the whole session.
+    """
+    import importlib
+    import subprocess
+    import sys
+    try:
+        return importlib.import_module(module)
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q",
+                        package or module], check=True)
+        return importlib.import_module(module)
+
+
+unidecode = _require("unidecode").unidecode
+sp_matmul_topn = _require("sparse_dot_topn").sp_matmul_topn
 
 IN = Path(os.environ.get("IN", "/kaggle/input"))
 OUT = Path(os.environ.get("OUT", "/kaggle/working"))
