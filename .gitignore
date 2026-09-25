@@ -1,5 +1,9 @@
 # Data — never commit competition data
 data/
+# Kernel outputs pulled from Kaggle: gigabytes of candidates, plus the .npz
+# shards and run logs beside them. Regenerable from the kernels.
+kaggle_outputs/
+*.npz
 !data/.gitkeep
 !data/**/.gitkeep
 *.csv
