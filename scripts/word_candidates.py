@@ -47,6 +47,12 @@ def main() -> None:
     ap.add_argument("--signal", default="combo", choices=["combo", "addr", "name"])
     ap.add_argument("--k", type=int, default=50, help="per source")
     ap.add_argument("--max-df", type=float, default=0.05)
+    ap.add_argument("--analyzer", default="word", choices=["word", "char_wb"],
+                    help="char_wb reaches different pairs than whole tokens: it "
+                         "survives typos inside a token but dilutes rare tokens "
+                         "across their pieces")
+    ap.add_argument("--ngram", type=int, default=0,
+                    help="n for char_wb (default 3); ignored for word")
     ap.add_argument("--chunk", type=int, default=40_000)
     ap.add_argument("--entities", type=int, default=0,
                     help="sample this many Source-1 entities (0 = all)")
@@ -55,9 +61,17 @@ def main() -> None:
     ap.add_argument("--out", default="")
     args = ap.parse_args()
 
-    work = Path(args.work or CACHE / f"wordcand/{args.split}_{args.signal}_k{args.k}")
+    if args.analyzer == "word":
+        vec_kw = dict(analyzer="word", ngram_range=(1, 1))
+        tag_a = ""
+    else:
+        n = args.ngram or 3
+        vec_kw = dict(analyzer="char_wb", ngram_range=(n, n))
+        tag_a = f"_char{n}"
+    work = Path(args.work or CACHE / f"wordcand/{args.split}_{args.signal}{tag_a}_k{args.k}")
     work.mkdir(parents=True, exist_ok=True)
-    out = Path(args.out or CACHE / f"wordcand/candidate_pairs_{args.signal}_{args.split}.tsv")
+    out = Path(args.out or
+               CACHE / f"wordcand/candidate_pairs_{args.signal}{tag_a}_{args.split}.tsv")
 
     s1 = pd.read_parquet(CACHE / f"{args.split}_source1.parquet",
                          columns=["entity_id", "country", "name_norm", "addr_norm"])
@@ -81,8 +95,8 @@ def main() -> None:
             if done == n_chunk:
                 log(f"{tag}: all {n_chunk} chunks present, skipping")
                 continue
-            v = TfidfVectorizer(analyzer="word", ngram_range=(1, 1), min_df=1,
-                                max_df=args.max_df, dtype=np.float32)
+            v = TfidfVectorizer(min_df=1, max_df=args.max_df,
+                                dtype=np.float32, **vec_kw)
             M = v.fit_transform(field(ts, args.signal)).tocsr()
             Mt = M.T.tocsr()
             t_ids = ts.entity_id.to_numpy()

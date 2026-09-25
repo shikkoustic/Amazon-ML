@@ -39,10 +39,15 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default=str(CACHE / "wordcand"))
     ap.add_argument("--split", default="train")
+    ap.add_argument("--signals", nargs="*", default=["combo", "addr", "name"],
+                    help="file stems to compare, e.g. combo addr name name_char3")
+    ap.add_argument("--base", default="",
+                    help="signal combination to report deltas against, "
+                         "'+'-joined (default: the first signal alone)")
     args = ap.parse_args()
 
     sigs = {}
-    for s in ("combo", "addr", "name"):
+    for s in args.signals:
         p = Path(args.dir) / f"candidate_pairs_{s}_{args.split}.tsv"
         if p.exists():
             sigs[s] = load(p)
@@ -79,11 +84,12 @@ def main() -> None:
         for combo in itertools.combinations(sigs, r):
             rec, ceil, avg = stats(combo)
             rows.append((combo, rec, ceil, avg))
+    base_key = tuple(args.base.split("+")) if args.base else (args.signals[0],)
     for combo, rec, ceil, avg in rows:
-        if combo == ("combo",):
+        if combo == base_key:
             base = ceil
     for combo, rec, ceil, avg in rows:
-        delta = "" if base is None or combo == ("combo",) else f"{ceil-base:+.4f}"
+        delta = "" if base is None or combo == base_key else f"{ceil-base:+.4f}"
         print(f"{'+'.join(combo):<22}{rec:>9.4f}{ceil:>10.4f}{avg:>10.1f}{delta:>10}")
 
 
