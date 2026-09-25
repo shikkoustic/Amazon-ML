@@ -1,0 +1,130 @@
+[
+ {
+  "recall": 0.6871471272002657,
+  "tp": 47587,
+  "fn": 21666,
+  "max_macro_f05": 0.8185700013386772,
+  "complete_entities": 0.4254710988778319,
+  "candidates": 392420,
+  "cand_per_entity": 19.621,
+  "by_country": {
+   "India": 0.6459705958511954,
+   "US": 0.7286352040816326
+  },
+  "config": "combod005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3"
+  ],
+  "k": 10,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.7235354425079058,
+  "tp": 50107,
+  "fn": 19146,
+  "max_macro_f05": 0.8441831601264487,
+  "complete_entities": 0.473533770908321,
+  "candidates": 981050,
+  "cand_per_entity": 49.0525,
+  "by_country": {
+   "India": 0.687199700779699,
+   "US": 0.7601461038961039
+  },
+  "config": "combod005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.7538590385976058,
+  "tp": 52207,
+  "fn": 17046,
+  "max_macro_f05": 0.8650317083108261,
+  "complete_entities": 0.5139741689604065,
+  "candidates": 1962082,
+  "cand_per_entity": 98.1041,
+  "by_country": {
+   "India": 0.7185315188307392,
+   "US": 0.7894538497217068
+  },
+  "config": "combod005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.7864496844902026,
+  "tp": 54464,
+  "fn": 14789,
+  "max_macro_f05": 0.8879263915655654,
+  "complete_entities": 0.5651598560237138,
+  "candidates": 3923910,
+  "cand_per_entity": 196.1955,
+  "by_country": {
+   "India": 0.7515032943004287,
+   "US": 0.8216604823747681
+  },
+  "config": "combod005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3"
+  ],
+  "k": 100,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8472557145538822,
+  "tp": 58675,
+  "fn": 10578,
+  "max_macro_f05": 0.9215522612521512,
+  "complete_entities": 0.6745183146305315,
+  "candidates": 2487228,
+  "cand_per_entity": 124.3614,
+  "by_country": {
+   "India": 0.8105993037373767,
+   "US": 0.8841894712430427
+  },
+  "config": "combo+name+addrd005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3",
+   "name_33d005_s2",
+   "name_33d005_s3",
+   "addr_33d005_s2",
+   "addr_33d005_s3"
+  ],
+  "k": 25,
+  "min_sim": 0.0
+ },
+ {
+  "recall": 0.8699695320058337,
+  "tp": 60248,
+  "fn": 9005,
+  "max_macro_f05": 0.9356562939545263,
+  "complete_entities": 0.712894346813466,
+  "candidates": 4973348,
+  "cand_per_entity": 248.6674,
+  "by_country": {
+   "India": 0.8362056564145351,
+   "US": 0.9039888682745826
+  },
+  "config": "combo+name+addrd005",
+  "passes": [
+   "combo_33d005_s2",
+   "combo_33d005_s3",
+   "name_33d005_s2",
+   "name_33d005_s3",
+   "addr_33d005_s2",
+   "addr_33d005_s3"
+  ],
+  "k": 50,
+  "min_sim": 0.0
+ }
+]

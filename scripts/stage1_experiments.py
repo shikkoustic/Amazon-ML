@@ -98,7 +98,7 @@ def load_ground_truth() -> dict[str, list[str]]:
 def tfidf_pass(idx_text: list[str], idx_gids: np.ndarray,
                q_text: list[str], ngram: tuple[int, int],
                top_n: int, chunk: int, max_features: int,
-               label: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+               label: str, max_df: float = 1.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (query_row, candidate_global_id, similarity) for the top matches."""
     # rows with no text cannot be matched and would only bloat the vocabulary
     keep = np.flatnonzero(np.fromiter((bool(s) for s in idx_text), bool, len(idx_text)))
@@ -108,8 +108,12 @@ def tfidf_pass(idx_text: list[str], idx_gids: np.ndarray,
     kept_gids = idx_gids[keep]
 
     t = time.time()
+    # High-document-frequency n-grams dominate the cost of every dot product
+    # while carrying almost no discriminating signal. Dropping them is the
+    # single biggest lever on query throughput.
     vec = TfidfVectorizer(analyzer="char_wb", ngram_range=ngram, min_df=3,
-                          max_features=max_features, dtype=np.float32)
+                          max_df=max_df, max_features=max_features,
+                          dtype=np.float32)
     X = vec.fit_transform(kept_text)
     XT = X.T.tocsr()
     del X
@@ -301,6 +305,12 @@ def main() -> None:
                     help="SMOKE TEST ONLY. Subsamples the index, which inflates "
                          "recall and makes the numbers meaningless. Use to check "
                          "the code runs, never to measure.")
+    ap.add_argument("--max-df", type=float, default=1.0,
+                    help="drop n-grams appearing in more than this fraction "
+                         "of index documents; the main throughput lever")
+    ap.add_argument("--tag", default="",
+                    help="suffix for pass names, to keep runs with different "
+                         "max_df from colliding in the checkpoint cache")
     ap.add_argument("--ngrams", default="33,24",
                     help="comma-separated ngram maxima to try, e.g. '33' or '33,24'")
     args = ap.parse_args()
@@ -412,17 +422,17 @@ def main() -> None:
                     idx_text = [d[icol][i] for i in idx_pos]
                     qt = [qcol[i] for i in qsel]
                 for ng in ngram_opts:
-                    ckey = f"{sig}_{ng[0]}{ng[1]}_s{src}__{cty}"
+                    ckey = f"{sig}_{ng[0]}{ng[1]}{args.tag}_s{src}__{cty}"
                     cached = load_pass(ckey)
                     if cached is not None:
-                        passes[f"{sig}_{ng[0]}{ng[1]}_s{src}"].append(cached)
+                        passes[f"{sig}_{ng[0]}{ng[1]}{args.tag}_s{src}"].append(cached)
                         log(f"    {ckey:<34} RESUMED {cached[0].size:>11,} pairs")
                         continue
                     r, c, sm = tfidf_pass(idx_text, gids, qt, ng, args.top_n,
                                           args.chunk, args.max_features,
-                                          f"S{src} {cty} {sig} {ng}")
+                                          f"S{src} {cty} {sig} {ng}", args.max_df)
                     save_pass(ckey, qmap[r], c, sm)
-                    passes[f"{sig}_{ng[0]}{ng[1]}_s{src}"].append((qmap[r], c, sm))
+                    passes[f"{sig}_{ng[0]}{ng[1]}{args.tag}_s{src}"].append((qmap[r], c, sm))
                 del idx_text, qt
                 gc.collect()
 
@@ -506,6 +516,18 @@ def main() -> None:
               f"recall={m['recall']:8.4%} maxF05={m['max_macro_f05']:7.4f} "
               f"cand/ent={m['cand_per_entity']:6.1f}  {bc}", flush=True)
         return m
+
+    if args.tag:
+        print(f"\n-- max_df={args.max_df} (tag {args.tag}) --", flush=True)
+        for k in (10, 25, 50, 100):
+            run(f"combo{args.tag}", [f"combo_33{args.tag}"], k, 0.0)
+        for k in (25, 50):
+            run(f"combo+name+addr{args.tag}",
+                [f"combo_33{args.tag}", f"name_33{args.tag}", f"addr_33{args.tag}"], k, 0.0)
+        REPORTS.mkdir(exist_ok=True)
+        (REPORTS / args.out).write_text(json.dumps(results, indent=1, default=str))
+        log(f"wrote {REPORTS/args.out}  ({time.time()-T0:.0f}s)")
+        return
 
     print("\n-- single passes, K sweep --", flush=True)
     for ng in ("33", "24"):
