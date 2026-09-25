@@ -39,11 +39,12 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-relative", action="store_true",
                     help="ablation: absolute features only, same data")
+    ap.add_argument("--data", default="train_relative.parquet")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
-    t = pq.read_table(CACHE / "train_relative.parquet")
+    t = pq.read_table(CACHE / args.data)
     meta = {"label", "source1_entity_id", "candidate_entity_id"}
     feats = [f for f in t.column_names if f not in meta and f not in DEAD]
     if args.no_relative:
@@ -71,7 +72,7 @@ def main() -> None:
          "num_leaves": 127, "min_data_in_leaf": 80, "feature_fraction": 0.8,
          "bagging_fraction": 0.8, "bagging_freq": 1, "verbose": -1,
          "num_threads": 4, "seed": args.seed},
-        lgb.Dataset(X[tr], label=y[tr]), num_boost_round=900,
+        lgb.Dataset(X[tr], label=y[tr]), num_boost_round=3000,
         valid_sets=[lgb.Dataset(X[va], label=y[va])],
         callbacks=[lgb.early_stopping(60, verbose=False), lgb.log_evaluation(0)])
     p = model.predict(X[va], num_iteration=model.best_iteration)
