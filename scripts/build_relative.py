@@ -46,13 +46,14 @@ def log(m):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--pairs", default="train_pairs.parquet")
     ap.add_argument("--entities", type=int, default=12_000)
     ap.add_argument("--seed", type=int, default=13)
     ap.add_argument("--out", default="train_relative.parquet")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
-    t = pq.read_table(CACHE / "train_pairs.parquet")
+    t = pq.read_table(CACHE / args.pairs)
     q = t.column("source1_entity_id").to_numpy(zero_copy_only=False)
     c = t.column("candidate_entity_id").to_numpy(zero_copy_only=False)
     lab = t.column("label").to_numpy()
