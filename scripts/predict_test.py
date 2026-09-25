@@ -184,6 +184,7 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
             q, _, rest = line.rstrip("\n").partition("\t")
             if rest:
                 union[q].update(x for x in rest.split(",") if x)
+    out_path = Path(shard).parent / "done" / (Path(shard).name + ".tsv")
     rows: list[str] = []
     scored = 0
     for q, cands in union.items():
@@ -208,6 +209,9 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
         keep = [cl[i] for i in np.flatnonzero(p >= thr)]
         if keep:
             rows.append(f"{q}\t{','.join(sorted(keep))}")
+    tmp = out_path.with_suffix(".tmp")
+    tmp.write_text("\n".join(rows) + ("\n" if rows else ""), encoding="utf-8")
+    tmp.rename(out_path)
     return shard, rows, scored
 
 
@@ -226,6 +230,10 @@ def main() -> None:
                          "rules without recomputing features")
     ap.add_argument("--countries", nargs="*", default=None,
                     help="restrict to these countries (for validation runs)")
+    ap.add_argument("--resume", action="store_true",
+                    help="keep shards already scored and continue")
+    ap.add_argument("--work", default="",
+                    help="scratch directory for shards and their results")
     ap.add_argument("--workers", type=int, default=1,
                     help="parallel scoring processes; forked after the text map "
                          "is built so they share it copy-on-write")
@@ -263,15 +271,28 @@ def main() -> None:
         cty_of = {k: v for k, v in cty_of.items() if v in want}
         log(f"restricted to {sorted(want)}: {len(cty_of):,} entities")
 
-    work = Path("/tmp/predict_shards")
-    if work.exists():
+    # Under data/interim rather than /tmp, and kept across runs: this
+    # container suspends between turns and takes running jobs with it, so a
+    # scoring pass that only writes at the end can lose hours of work. With
+    # --resume the shards already scored are skipped instead.
+    work = Path(args.work or CACHE / "predict_work")
+    done_dir = work / "done"
+    if work.exists() and not args.resume:
         shutil.rmtree(work)
-    work.mkdir(parents=True)
+    work.mkdir(parents=True, exist_ok=True)
+    done_dir.mkdir(exist_ok=True)
 
     idf = build_idf(args.split)
     log(f"idf over {len(idf):,} tokens")
 
-    shards = shard_candidates([Path(p) for p in args.candidates], cty_of, work)
+    existing = sorted(work.glob("*.txt"))
+    if args.resume and existing:
+        shards = collections.defaultdict(list)
+        for sp in existing:
+            shards[sp.name.split("__")[0].replace("_", " ")].append(sp)
+        log(f"resuming: {sum(len(v) for v in shards.values())} shard files on disk")
+    else:
+        shards = shard_candidates([Path(p) for p in args.candidates], cty_of, work)
     log(f"shards: { {c: len(v) for c, v in shards.items()} }")
 
     out = Path(args.out)
@@ -307,11 +328,29 @@ def main() -> None:
             _W.update(text=text, idf=idf, keep_cols=keep_cols, bi=bi,
                       thr=args.threshold)
             import multiprocessing as mp
+            todo = []
+            for sp in paths:
+                fin = done_dir / (sp.name + ".tsv")
+                if fin.exists():
+                    for row in fin.read_text(encoding="utf-8").splitlines():
+                        q, _, ids = row.partition("\t")
+                        if q:
+                            n_kept += ids.count(",") + 1
+                            predicted[q] = ids
+                else:
+                    todo.append(sp)
+            if len(todo) < len(paths):
+                log(f"{cty}: {len(paths)-len(todo)} shards already scored, "
+                    f"{len(todo)} to go")
+            if not todo:
+                del text
+                _W.clear()
+                continue
             with mp.get_context("fork").Pool(
                     args.workers, initializer=_init_worker,
                     initargs=(str(CACHE / args.model),)) as pool:
                 for shard, rows, scored in pool.imap_unordered(
-                        _score_shard, [str(x) for x in paths]):
+                        _score_shard, [str(x) for x in todo]):
                     n_pairs += scored
                     for row in rows:
                         q, _, ids = row.partition("\t")
@@ -319,7 +358,6 @@ def main() -> None:
                         predicted[q] = ids
                     log(f"{Path(shard).name}: {scored:,} scored "
                         f"(running {n_pairs:,} scored, {n_kept:,} kept)")
-                    Path(shard).unlink()
             del text
             _W.clear()
             continue
