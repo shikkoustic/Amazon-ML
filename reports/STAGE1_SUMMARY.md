@@ -213,22 +213,52 @@ label requires no code change.
 
 ---
 
-## 10. Open items for Stage 2
+## 10. Where the test run has to happen
 
-1. **Run the full test generation.** `scripts/generate_candidates.py
-   --split test`. Validated end-to-end on a 3,000-query subset producing
-   correctly formatted output; the full run is ~15 h of compute at the
-   chosen config and has not been completed.
-2. **Exploit exclusivity** (§2) as a post-processing assignment step.
-3. **Tune the decision threshold for F_0.5, not F1.** Expected-value
+Measured throughput is **~90 queries/sec** against a 2.3M-document index.
+The test set needs 1,732,544 queries per signal per source, so:
+
+| Config | query-passes | compute |
+|---|---|---|
+| combo only, K=50 | 3.5M | **~11 h** |
+| combo+name+addr, K=25 | 10.4M | ~32 h |
+
+**This container cannot do it.** It suspends between turns, yielding about
+seven usable minutes per turn; eleven hours would take roughly ninety
+turns and thirty-two hours nearly three hundred.
+
+**Run it on Kaggle instead.** A Kaggle session runs 12 hours uninterrupted,
+which fits the combo-only configuration in a single session.
+`scripts/kaggle_generate_candidates.py` is self-contained for that purpose
+— its inlined normaliser is verified to produce byte-identical output to
+`src/normalize.py` on cross-script and edge-case inputs. It checkpoints per
+country and source, so a session cut short resumes.
+
+```bash
+!pip -q install unidecode sparse_dot_topn
+!python kaggle_generate_candidates.py     --data /kaggle/input/<slug>/student_resource/dataset --out /kaggle/working
+```
+
+Given the compute constraint, **combo-only at K=50 is the recommended test
+configuration**: 0.9835 ceiling against 0.9885 for all three signals, at
+one third the cost. Stage 2 will not approach either ceiling, so the
+0.005 difference is not worth tripling the runtime.
+
+`scripts/generate_candidates.py` remains the local equivalent, chunk-
+checkpointed, and has accumulated partial progress under
+`data/interim/candgen/`.
+
+## 11. Open items for Stage 2
+1. **Exploit exclusivity** (§2) as a post-processing assignment step.
+2. **Tune the decision threshold for F_0.5, not F1.** Expected-value
    analysis says add a further match only above ~0.67 confidence; re-derive
    empirically.
-4. **Build a singleton detector** — 5.58% of entities, each worth a full
+3. **Build a singleton detector** — 5.58% of entities, each worth a full
    1.0, and any false positive on one costs the entire point.
-5. **Score the un-phonetically-folded forms.** The folding trades precision
+4. **Score the un-phonetically-folded forms.** The folding trades precision
    for recall, which is right for blocking and wrong for scoring.
 
-## 11. Untested
+## 12. Untested
 
 - char n-gram range (2,4) — ~3× the cost of (3,3); the arm was dropped
   before a clean comparison, so (3,3) is chosen on cost, not on measured

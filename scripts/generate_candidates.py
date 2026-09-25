@@ -48,34 +48,66 @@ def signal_text(d: dict, sig: str, pos: np.ndarray) -> list[str]:
     return [d[f"{'name' if sig == 'name' else 'addr'}_key"][i] for i in pos]
 
 
-def run_signal(idx_text, idx_gids, q_text, cfg) -> tuple[np.ndarray, np.ndarray]:
+def run_signal(idx_text, idx_gids, q_text, cfg, part_dir: Path) -> bool:
+    """Query in chunks, checkpointing each one.
+
+    A single shard here can be five hours of work -- far longer than the
+    container stays alive -- so checkpointing per shard means no progress is
+    ever saved. Each chunk of queries is written separately and skipped on
+    resume. Returns True when every chunk for this shard exists.
+    """
+    part_dir.mkdir(parents=True, exist_ok=True)
+    n_chunks = (len(q_text) + cfg.chunk - 1) // cfg.chunk
+    todo = [i for i in range(n_chunks)
+            if not (part_dir / f"c{i:05d}.npz").exists()]
+    if not todo:
+        return True
+
     keep = np.flatnonzero(np.fromiter((bool(s) for s in idx_text), bool, len(idx_text)))
     if keep.size == 0:
-        return np.empty(0, np.int32), np.empty(0, np.int64)
+        for i in range(n_chunks):
+            np.savez_compressed(part_dir / f"c{i:05d}.npz",
+                                rows=np.empty(0, np.int32), cols=np.empty(0, np.int64))
+        return True
     kept_text = [idx_text[i] for i in keep]
     kept_gids = idx_gids[keep]
 
+    t0 = time.time()
     vec = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 3), min_df=3,
                           max_df=cfg.max_df, max_features=300_000, dtype=np.float32)
     X = vec.fit_transform(kept_text)
     XT = X.T.tocsr()
-    del X
+    del X, kept_text
     gc.collect()
+    log(f"      index fit {time.time()-t0:.0f}s, {len(todo)}/{n_chunks} chunks left")
 
-    rows, cols = [], []
-    for start in range(0, len(q_text), cfg.chunk):
+    for i in todo:
+        if time.time() - T0 > cfg.budget:
+            log(f"      budget reached, {len([j for j in todo if j >= i])} chunks remain")
+            return False
+        start = i * cfg.chunk
         Q = vec.transform(q_text[start:start + cfg.chunk])
         C = sp_matmul_topn(Q, XT, top_n=cfg.k, threshold=0.0,
                            sort=False, n_threads=4).tocoo()
-        rows.append(C.row.astype(np.int32) + start)
-        cols.append(kept_gids[C.col])
+        tmp = part_dir / f".c{i:05d}.tmp.npz"
+        np.savez_compressed(tmp, rows=(C.row.astype(np.int32) + start),
+                            cols=kept_gids[C.col])
+        tmp.rename(part_dir / f"c{i:05d}.npz")
         del Q, C
         gc.collect()
     del vec, XT
     gc.collect()
-    r = np.concatenate(rows) if rows else np.empty(0, np.int32)
-    c = np.concatenate(cols) if cols else np.empty(0, np.int64)
-    return r, c
+    return True
+
+
+def merge_parts(part_dir: Path, n_chunks: int):
+    rows, cols = [], []
+    for i in range(n_chunks):
+        z = np.load(part_dir / f"c{i:05d}.npz")
+        rows.append(z["rows"])
+        cols.append(z["cols"])
+    return (np.concatenate(rows) if rows else np.empty(0, np.int32),
+            np.concatenate(cols) if cols else np.empty(0, np.int64))
 
 
 def main() -> None:
@@ -87,6 +119,9 @@ def main() -> None:
     ap.add_argument("--chunk", type=int, default=20_000)
     ap.add_argument("--limit", type=int, default=0, help="cap queries, for testing")
     ap.add_argument("--work", default="candgen")
+    ap.add_argument("--budget", type=float, default=500,
+                    help="seconds before stopping cleanly; the container "
+                         "suspends between turns so work must be bounded")
     args = ap.parse_args()
     signals = args.signals.split(",")
     work = CACHE / args.work / args.split
@@ -116,11 +151,21 @@ def main() -> None:
                 t = time.time()
                 idx_text = signal_text(d, sig, idx_pos)
                 q_text = signal_text(s1, sig, qsel)
-                r, c = run_signal(idx_text, idx_pos.astype(np.int64), q_text, args)
+                part_dir = work / f"{sig}_s{src}__{cty}.parts"
+                done = run_signal(idx_text, idx_pos.astype(np.int64), q_text,
+                                  args, part_dir)
+                if not done:
+                    log("  budget exhausted; rerun to continue")
+                    return
+                n_chunks = (len(q_text) + args.chunk - 1) // args.chunk
+                r, c = merge_parts(part_dir, n_chunks)
                 tmp = work / f".{sig}_s{src}__{cty}.tmp.npz"
                 np.savez_compressed(tmp, qpos=qsel[r].astype(np.int32),
                                     ipos=c.astype(np.int64))
                 tmp.rename(out)
+                for f in part_dir.glob("*.npz"):
+                    f.unlink()
+                part_dir.rmdir()
                 log(f"  {out.name:<30} q={qsel.size:>8,} idx={idx_pos.size:>9,} "
                     f"pairs={r.size:>11,}  {time.time()-t:6.0f}s")
                 del idx_text, q_text, r, c
