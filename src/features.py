@@ -107,6 +107,14 @@ def soft_idf_overlap(a: set[str], b: set[str], idf: dict[str, float]) -> float:
                 if _abbrev_of(x, y) or _abbrev_of(y, x):
                     sim = 0.9
                 else:
+                    # Jaro is bounded above by (2*min/max + 1)/3, so a pair whose
+                    # lengths differ by more than a fifth cannot reach 0.88 and
+                    # need not be compared. Skipping those changes no value and
+                    # removes most of the comparisons, which matter: this
+                    # function runs twice per pair over hundreds of millions.
+                    lx, ly = len(x), len(y)
+                    if 5 * min(lx, ly) < 4 * max(lx, ly):
+                        continue
                     sim = JaroWinkler.similarity(x, y)
                     if sim < 0.88:
                         continue
