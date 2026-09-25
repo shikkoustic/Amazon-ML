@@ -59,6 +59,63 @@ def idf_overlap(a: set[str], b: set[str], idf: dict[str, float]) -> float:
     return wi / wu if wu else 0.0
 
 
+
+def _abbrev_of(short: str, long: str) -> bool:
+    """Is `short` an abbreviation of `long`, as a subsequence in order?
+
+    Abbreviation is the general shape of this corpus's shortenings: rd inside
+    road, mh inside maharashtra, tx inside texas, st inside stret. Stating it
+    as a rule rather than a table covers the abbreviations the test set
+    happens to contain, which a list compiled from training never can.
+    """
+    if len(short) < 2 or len(long) - len(short) < 2 or short[0] != long[0]:
+        return False
+    it = iter(long)
+    return all(ch in it for ch in short)
+
+
+def soft_idf_overlap(a: set[str], b: set[str], idf: dict[str, float]) -> float:
+    """IDF-weighted overlap that also credits near-matching tokens.
+
+    Plain overlap scores "123 park road" against "123 park rd" as partial
+    disagreement, because rd and road share no characters in the positions
+    that matter to exact matching. This lets an unmatched token pair count
+    when one abbreviates the other or the two are a typo apart, carrying the
+    weight of the rarer token and discounted by how good the match is, so a
+    distinctive name still outweighs a shared street type.
+
+    This is SoftTF-IDF: the standard answer to the same problem, and it needs
+    no table of known variants.
+    """
+    if not a or not b:
+        return 0.0
+    inter = a & b
+    total = sum(idf.get(t, 12.0) for t in a | b)
+    if total <= 0:
+        return 0.0
+    score = sum(idf.get(t, 12.0) for t in inter)
+    only_a, only_b = a - inter, b - inter
+    if only_a and only_b:
+        used: set[str] = set()
+        for x in sorted(only_a, key=lambda t: -idf.get(t, 12.0)):
+            best, bw = 0.0, None
+            for y in only_b:
+                if y in used:
+                    continue
+                if _abbrev_of(x, y) or _abbrev_of(y, x):
+                    sim = 0.9
+                else:
+                    sim = JaroWinkler.similarity(x, y)
+                    if sim < 0.88:
+                        continue
+                if sim > best:
+                    best, bw = sim, y
+            if bw is not None:
+                used.add(bw)
+                score += best * min(idf.get(x, 12.0), idf.get(bw, 12.0))
+    return score / total
+
+
 def pair_features(n1: str, a1: str, n2: str, a2: str,
                   idf: dict[str, float] | None = None) -> list[float]:
     """Feature vector for one candidate pair. Order matches FEATURE_NAMES."""
@@ -104,6 +161,8 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
         float(len(n1)), float(len(n2)),
         abs(len(n1) - len(n2)) / max(len(n1) + len(n2), 1),
         abs(len(t1n) - len(t2n)),
+        soft_idf_overlap(t1a, t2a, idf or {}),
+        soft_idf_overlap(t1n, t2n, idf or {}),
         float(not a1 or not a2),                    # an address is missing
         float(not n1 or not n2),
 
@@ -227,6 +286,7 @@ FEATURE_NAMES = [
     "addr_token_sort", "addr_exact", "addr_idf_overlap",
     "num_jac", "num_shared", "num_exact", "num_onesided",
     "len_n1", "len_n2", "len_ratio", "tok_diff",
+    "addr_soft_idf", "name_soft_idf",
     "addr_missing", "name_missing",
     "region_match", "region_conflict", "region_onesided",
     "addr_prefix_overlap", "name_prefix_overlap", "num_prefix_overlap",
