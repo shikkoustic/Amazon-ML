@@ -179,7 +179,12 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
         a = text.get(q)
         if a is None or not cands:
             continue
-        cl = [c for c in cands if c in text]
+        # sorted, not set order: Python randomises string hashing per process,
+        # so set iteration order varies between runs. Relative features break
+        # ties by position (argsort ranks, argmax for is_argmax), so that
+        # ordering decided borderline predictions and two identical runs
+        # disagreed on ~3% of entities.
+        cl = sorted(c for c in cands if c in text)
         if not cl:
             continue
         X = np.zeros((len(cl), len(FEATURE_NAMES)), np.float32)
@@ -320,7 +325,7 @@ def main() -> None:
                 a = text.get(q)
                 if a is None or not cands:
                     continue
-                cl = [c for c in cands if c in text]
+                cl = sorted(c for c in cands if c in text)
                 if not cl:
                     continue
                 if dump:
