@@ -1,0 +1,493 @@
+<title>Entity Resolution Build Log</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+  :root{
+    --paper:#f6f7f9; --panel:#ffffff; --ink:#151a21; --ink-soft:#3d4753;
+    --muted:#6a7482; --rule:#dfe3e9; --rule-soft:#eceff3;
+    --accent:#2b5c8a; --accent-soft:#eaf1f8;
+    --verified:#2f6b4f; --verified-soft:#e8f2ec;
+    --rejected:#9c452a; --rejected-soft:#f8ece7;
+    --open:#7a5a12; --open-soft:#f7f0dd;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#101419; --panel:#161c23; --ink:#e7ebf0; --ink-soft:#b8c1cc;
+      --muted:#8c97a5; --rule:#2a323c; --rule-soft:#212932;
+      --accent:#78aada; --accent-soft:#18242f;
+      --verified:#71c39a; --verified-soft:#152420;
+      --rejected:#e0906f; --rejected-soft:#261813;
+      --open:#d8b45e; --open-soft:#241e12;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101419; --panel:#161c23; --ink:#e7ebf0; --ink-soft:#b8c1cc;
+    --muted:#8c97a5; --rule:#2a323c; --rule-soft:#212932;
+    --accent:#78aada; --accent-soft:#18242f;
+    --verified:#71c39a; --verified-soft:#152420;
+    --rejected:#e0906f; --rejected-soft:#261813;
+    --open:#d8b45e; --open-soft:#241e12;
+    color-scheme:dark;
+  }
+
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:780px; margin:0 auto; padding-inline:20px; padding-block:0 72px;}
+
+  h1,h2,h3,.ui{font-family:"IBM Plex Sans",system-ui,sans-serif;}
+  h1{font-size:2.05rem; line-height:1.15; font-weight:700; letter-spacing:-.022em;
+     text-wrap:balance; margin:0 0 .5rem;}
+  h2{font-size:1.22rem; font-weight:600; letter-spacing:-.012em; text-wrap:balance;
+     margin:0; padding-top:.1rem;}
+  h3{font-size:.97rem; font-weight:600; margin:0 0 .35rem; text-wrap:balance;}
+  p{margin:0 0 1rem;}
+  a{color:var(--accent);}
+
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.7rem; font-weight:500;
+    letter-spacing:.13em; text-transform:uppercase; color:var(--muted);}
+
+  header.top{padding-block:44px 26px; border-bottom:2px solid var(--ink);}
+  .lede{font-size:1.06rem; color:var(--ink-soft); margin:.9rem 0 0; max-width:60ch;}
+
+  .scoreboard{display:grid; grid-template-columns:repeat(auto-fit,minmax(138px,1fr));
+    gap:1px; background:var(--rule); border:1px solid var(--rule);
+    margin:26px 0 0;}
+  .sb{background:var(--panel); padding:13px 14px;}
+  .sb .k{font-family:"IBM Plex Mono",monospace; font-size:1.34rem; font-weight:600;
+    letter-spacing:-.02em; font-variant-numeric:tabular-nums; display:block;}
+  .sb .l{font-family:"IBM Plex Sans",sans-serif; font-size:.73rem; color:var(--muted);
+    display:block; margin-top:3px; line-height:1.35;}
+  .sb.hi .k{color:var(--accent);}
+
+  section{padding-block:34px 4px; border-top:1px solid var(--rule); margin-top:30px;}
+  section:first-of-type{border-top:none;}
+  .shead{display:flex; align-items:baseline; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
+  .snum{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--accent);
+    font-weight:600; letter-spacing:.06em;}
+
+  table{width:100%; border-collapse:collapse; font-family:"IBM Plex Sans",sans-serif;
+    font-size:.85rem; margin:4px 0 18px;}
+  .scroll{overflow-x:auto; margin:4px 0 18px;}
+  .scroll table{margin:0;}
+  th{text-align:left; font-weight:600; font-size:.72rem; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--rule);
+    padding:6px 10px 6px 0; white-space:nowrap;}
+  td{padding:7px 10px 7px 0; border-bottom:1px solid var(--rule-soft);
+    vertical-align:baseline;}
+  td.n,th.n{text-align:right; font-family:"IBM Plex Mono",monospace;
+    font-variant-numeric:tabular-nums; padding-right:0;}
+  tr.mark td{font-weight:600; color:var(--accent);}
+  code,.mono{font-family:"IBM Plex Mono",monospace; font-size:.87em;}
+  code{background:var(--rule-soft); padding:.1em .34em; border-radius:2px;}
+
+  .find{border-left:3px solid var(--rule); padding:12px 0 12px 15px; margin:0 0 14px;}
+  .find.v{border-left-color:var(--verified);}
+  .find.x{border-left-color:var(--rejected);}
+  .find.o{border-left-color:var(--open);}
+  .find p:last-child{margin-bottom:0;}
+  .tag{font-family:"IBM Plex Mono",monospace; font-size:.66rem; font-weight:600;
+    letter-spacing:.1em; text-transform:uppercase; padding:2px 7px; border-radius:2px;
+    display:inline-block; margin-bottom:6px;}
+  .tag.v{background:var(--verified-soft); color:var(--verified);}
+  .tag.x{background:var(--rejected-soft); color:var(--rejected);}
+  .tag.o{background:var(--open-soft); color:var(--open);}
+
+  .flow{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:8px;
+    align-items:stretch; font-family:"IBM Plex Sans",sans-serif; margin:6px 0 20px;}
+  .fbox{background:var(--panel); border:1px solid var(--rule); padding:11px 12px;}
+  .fbox .t{font-size:.82rem; font-weight:600; display:block;}
+  .fbox .d{font-size:.72rem; color:var(--muted); display:block; margin-top:3px;
+    line-height:1.4;}
+  .fbox .m{font-family:"IBM Plex Mono",monospace; font-size:.71rem; color:var(--accent);
+    display:block; margin-top:6px; font-variant-numeric:tabular-nums;}
+  .farrow{display:flex; align-items:center; color:var(--muted); font-size:1rem;}
+  @media (max-width:620px){
+    .flow{grid-template-columns:1fr;}
+    .farrow{justify-content:center; transform:rotate(90deg); padding:2px 0;}
+  }
+
+  blockquote{margin:0 0 16px; padding:13px 16px; background:var(--accent-soft);
+    border-left:3px solid var(--accent); font-size:.95rem;}
+  blockquote p:last-child{margin-bottom:0;}
+
+  ul{margin:0 0 1rem; padding-left:1.15rem;}
+  li{margin-bottom:.4rem;}
+  .tight li{margin-bottom:.2rem;}
+  footer{margin-top:40px; padding-top:18px; border-top:1px solid var(--rule);
+    font-family:"IBM Plex Sans",sans-serif; font-size:.78rem; color:var(--muted);}
+  .warn{color:var(--rejected); font-weight:600;}
+  .ok{color:var(--verified); font-weight:600;}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">Amazon ML Challenge 2026 &middot; Business Entity Resolution</span>
+  <h1>Entity Resolution Build Log</h1>
+  <p class="lede">What has been built, what every number was measured against, and
+  which ideas were tested and thrown out. Figures come from the training ground
+  truth unless marked otherwise.</p>
+
+  <div class="scoreboard">
+    <div class="sb"><span class="k">0.989</span><span class="l">Blocking ceiling &mdash; best score any matcher could reach from our candidates</span></div>
+    <div class="sb hi"><span class="k">0.904</span><span class="l">Current matcher, macro F<sub>0.5</sub>, measured honestly</span></div>
+    <div class="sb"><span class="k">0.056</span><span class="l">Submitting empty for everything</span></div>
+    <div class="sb"><span class="k">7.6M</span><span class="l">True pairs checked exhaustively, not sampled</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="shead"><span class="snum">01</span><h2>What the metric actually rewards</h2></div>
+
+  <p>The score is F<sub>0.5</sub> computed <em>per Source&nbsp;1 entity, then averaged</em>.
+  Three consequences drive every decision below, and getting them wrong costs more
+  than any modelling choice.</p>
+
+  <p><strong>Precision counts double.</strong> For an entity with two true matches,
+  finding both plus one wrong scores <span class="mono">0.714</span> &mdash; worse
+  than finding one and stopping, which scores <span class="mono">0.833</span>.
+  Guessing extra matches is actively penalised.</p>
+
+  <p><strong>Partial recall is cheap.</strong> Missing one of three matches still
+  scores <span class="mono">0.909</span> for that entity. This matters enormously
+  for how many candidates are worth generating.</p>
+
+  <p><strong>Singletons are free points.</strong> 5.58% of entities have no match at
+  all. Predicting nothing for them scores a full <span class="mono">1.0</span>;
+  a single wrong guess scores <span class="mono">0.0</span>.</p>
+
+  <blockquote><p>The decision threshold that follows from this is
+  <span class="mono">0.67</span>, not the <span class="mono">0.5</span> a classifier
+  defaults to. That figure was derived from the metric before any model existed, and
+  the trained model later confirmed it exactly.</p></blockquote>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">02</span><h2>Facts verified over the entire dataset</h2></div>
+
+  <p>These were checked against all <span class="mono">7,638,365</span> true pairs,
+  not a sample. Sampling can estimate a percentage; it cannot answer
+  &ldquo;does this ever happen&rdquo;.</p>
+
+  <div class="find v">
+    <span class="tag v">Verified &middot; 0 exceptions</span>
+    <h3>Matched records always share a country</h3>
+    <p>Zero cross-country matches in the whole training set. Partitioning candidate
+    search by country is therefore free rather than a trade-off, and it handles the
+    unseen country automatically because the rule is &ldquo;same country&rdquo;, not
+    &ldquo;US or India&rdquo;.</p>
+  </div>
+
+  <div class="find v">
+    <span class="tag v">Verified &middot; 0 exceptions</span>
+    <h3>Matches are strictly one-to-many</h3>
+    <p>Total matched-id slots <span class="mono">7,638,365</span> equals distinct
+    matched ids <span class="mono">7,638,365</span>. No Source&nbsp;2 or Source&nbsp;3
+    record is ever claimed by two Source&nbsp;1 entities. The task is an assignment
+    problem, not independent pair classification.</p>
+  </div>
+
+  <div class="find v">
+    <span class="tag v">Verified</span>
+    <h3>Nine writing systems, and they are concentrated in the test set</h3>
+    <p>Source&nbsp;1 is entirely Latin. Sources&nbsp;2 and&nbsp;3 carry Devanagari,
+    Telugu, Kannada, Tamil, Gujarati, Bengali, Malayalam, Oriya and Gurmukhi &mdash;
+    about 9.2% of names in training and <strong>11% in test</strong>. A Latin query
+    against a Devanagari name scores exactly zero on any character comparison. Not
+    low. Zero.</p>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Structural fact</th><th class="n">Value</th></tr>
+    <tr><td>Source 1 entities (train / test)</td><td class="n">2,206,821 / 1,732,544</td></tr>
+    <tr><td>Exhaustive pair comparison on train</td><td class="n">22.7 trillion</td></tr>
+    <tr><td>Singleton rate</td><td class="n">5.58%</td></tr>
+    <tr><td>Max matches for one entity</td><td class="n">11</td></tr>
+    <tr><td>Max from Source 2 / Source 3</td><td class="n">5 / 6</td></tr>
+    <tr><td>France share of test set (absent from training)</td><td class="n">15.0%</td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">03</span><h2>Stage 1 &mdash; candidate generation</h2></div>
+
+  <div class="flow">
+    <div class="fbox"><span class="t">All pairs</span><span class="d">every Source 1 against every Source 2 and 3 record</span><span class="m">22.7 trillion</span></div>
+    <div class="farrow">&rarr;</div>
+    <div class="fbox"><span class="t">Blocking</span><span class="d">country partition, then nearest neighbours on a combined name + address field</span><span class="m">100 / entity</span></div>
+    <div class="farrow">&rarr;</div>
+    <div class="fbox"><span class="t">Matcher</span><span class="d">27 features, gradient boosting, threshold tuned for F<sub>0.5</sub></span><span class="m">3.0 / entity</span></div>
+  </div>
+
+  <h3>The reachability ceiling was misleading, and catching that mattered</h3>
+  <p>Name or address similarity can <em>reach</em> <span class="mono">99.998%</span>
+  of true pairs (stable across five random seeds, standard deviation
+  <span class="mono">0.002%</span>). That number assumes exhaustive comparison.
+  Under real top-K ranking against millions of same-country records, name-only
+  blocking collapses from a 91.5% ceiling to <span class="mono">64.8%</span>
+  realised. A true match can be perfectly visible and still sit below thousands of
+  businesses with similar names.</p>
+
+  <h3>Transliteration is load-bearing, not decoration</h3>
+  <p>Measured on the name signal alone:</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Name representation</th><th class="n">India</th><th class="n">US</th></tr>
+    <tr><td>Raw</td><td class="n">81.4%</td><td class="n">98.5%</td></tr>
+    <tr><td>Transliterated</td><td class="n">95.6%</td><td class="n">98.5%</td></tr>
+    <tr class="mark"><td>Transliterated + phonetic folding</td><td class="n">98.2%</td><td class="n">98.7%</td></tr>
+  </table>
+  </div>
+  <p>Ordering inside normalisation turned out to matter as much as the steps
+  themselves. Stripping legal suffixes before collapsing transliteration artefacts
+  left a Latin record without <span class="mono">private limited</span> while its
+  Indic counterpart still carried <span class="mono">praaivett limittedd</span>
+  &mdash; the two sides normalised asymmetrically, dragging down exactly the pairs
+  transliteration exists to rescue. Reversing the order lifted cross-script
+  similarity from <span class="mono">0.000</span> to
+  <span class="mono">0.16&ndash;0.27</span>.</p>
+
+  <h3>The single largest improvement</h3>
+  <p>Indexing name and address as <em>one combined string</em>. Separate passes
+  cannot express that a record agreeing on <em>both</em> fields beats one agreeing on
+  either alone, which is precisely what top-K ranking was discarding. The combined
+  field alone reaches 93.4% recall from twenty candidates per entity &mdash; better
+  than the name-plus-address union at the same K, with half as many candidates.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Pass</th><th class="n">Recall contributed</th><th class="n">Cost, cand/entity</th></tr>
+    <tr class="mark"><td>Combined name + address field</td><td class="n">+1.115%</td><td class="n">57.9</td></tr>
+    <tr><td>Address</td><td class="n">+0.445%</td><td class="n">65.4</td></tr>
+    <tr><td>Name</td><td class="n">+0.365%</td><td class="n">70.3</td></tr>
+    <tr><td>Rare-token inverted index</td><td class="n">+0.065%</td><td class="n">3.5</td></tr>
+    <tr><td>Sorted-token key</td><td class="n">+0.020%</td><td class="n">13.2</td></tr>
+  </table>
+  </div>
+
+  <h3>Why the candidate set is deliberately small</h3>
+  <p>Because F<sub>0.5</sub> averages per entity, pair recall is a poor guide to the
+  score. Going from twenty candidates per entity to 523 &mdash; twenty-six times the
+  work &mdash; buys <span class="mono">+0.018</span> of ceiling. Since the matcher
+  will fall well short of its ceiling regardless, a smaller set that allows fast
+  iteration is worth more than the last fraction of recall.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Configuration</th><th class="n">Pair recall</th><th class="n">F<sub>0.5</sub> ceiling</th><th class="n">Cand/entity</th></tr>
+    <tr><td>Combined field, K=25</td><td class="n">94.6%</td><td class="n">0.9798</td><td class="n">50</td></tr>
+    <tr class="mark"><td>Combined field, K=50 &mdash; chosen</td><td class="n">95.5%</td><td class="n">0.9835</td><td class="n">100</td></tr>
+    <tr><td>Combined + name + address, K=25</td><td class="n">96.8%</td><td class="n">0.9885</td><td class="n">128</td></tr>
+    <tr><td>All passes, K=100</td><td class="n">98.2%</td><td class="n">0.9937</td><td class="n">523</td></tr>
+  </table>
+  </div>
+
+  <h3>Throughput decided the final shape</h3>
+  <p>Query rate turned out to be governed by how many character n-grams each record
+  carries, not by K or by any similarity floor &mdash; varying either left the rate
+  unchanged, because the cost sits in the sparse dot products rather than in
+  selecting the top K. Pruning n-grams that appear in more than 5% of records
+  roughly doubles throughput for <span class="mono">0.0005</span> of ceiling.
+  Pruning at 0.5% is thirty times faster but costs seven points, so the useful knee
+  is sharp and worth finding.</p>
+  <p>At the measured 90 queries per second the full test run is about sixteen hours,
+  past the twelve-hour session limit, so it runs as two jobs (Source&nbsp;2, then
+  Source&nbsp;3) whose outputs merge.</p>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">04</span><h2>Stage 2 &mdash; the matcher</h2></div>
+
+  <p>Twenty-seven pair features, ranked by AUC against real labels rather than chosen
+  by intuition. The negatives they run against are not random records: blocking has
+  already removed everything sharing no country and little text, so what remains are
+  same-country businesses with similar names. The model has to separate
+  <em>same business written differently</em> from <em>different business written
+  similarly</em>.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Feature</th><th class="n">AUC</th><th class="n">Mean, match</th><th class="n">Mean, non-match</th></tr>
+    <tr class="mark"><td>Address token overlap, IDF-weighted</td><td class="n">0.936</td><td class="n">0.674</td><td class="n">0.140</td></tr>
+    <tr><td>Address token Jaccard</td><td class="n">0.927</td><td class="n">0.634</td><td class="n">0.145</td></tr>
+    <tr><td>Address digits Jaccard</td><td class="n">0.883</td><td class="n">0.718</td><td class="n">0.052</td></tr>
+    <tr><td>Name Jaro&ndash;Winkler</td><td class="n">0.852</td><td class="n">0.926</td><td class="n">0.671</td></tr>
+    <tr><td>Name 3-gram Jaccard</td><td class="n">0.837</td><td class="n">0.752</td><td class="n">0.293</td></tr>
+  </table>
+  </div>
+
+  <p>Addresses separate matches better than names, mirroring the blocking result.
+  Weighting overlap by token rarity earns its keep &mdash; two records sharing
+  <span class="mono">enterprises</span> says nothing, sharing
+  <span class="mono">zephyr</span> says a great deal. The digits inside an address
+  separate almost disjointly, because house numbers and pincodes survive
+  transliteration where words do not.</p>
+
+  <div class="find x">
+    <span class="tag x">Corrected</span>
+    <h3>The first score reported was wrong, and inflated</h3>
+    <p>Initial evaluation gave macro F<sub>0.5</sub> of
+    <span class="mono">0.9468</span>. That figure was an artefact: training
+    downsampled negatives, so each validation entity faced a fraction of its
+    candidates and had correspondingly fewer chances to attract a false positive.
+    That flatters precision, which is the thing F<sub>0.5</sub> weights most heavily.
+    Re-measured against <em>every</em> candidate blocking produces, the honest figure
+    is <span class="mono">0.9024</span>. The gap was
+    <span class="mono">0.044</span> &mdash; larger than most of the improvements
+    under consideration.</p>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">05</span><h2>Ideas tested and rejected</h2></div>
+
+  <p>Each of these was proposed, implemented, measured, and dropped. They are listed
+  because the numbers that killed them are as useful as the ones that survived.</p>
+
+  <div class="find x">
+    <span class="tag x">Rejected &middot; no effect</span>
+    <h3>Exploiting the one-to-many constraint</h3>
+    <p>Since no record may be claimed by two entities, conflicting predictions are
+    provably wrong without consulting the model &mdash; free precision, in theory.
+    In practice, at any useful threshold the model produces
+    <strong>zero conflicts</strong> (<span class="mono">0</span> of
+    <span class="mono">12,679</span> predicted pairs at threshold 0.90). The
+    constraint is real and completely non-binding.</p>
+  </div>
+
+  <div class="find x">
+    <span class="tag x">Rejected &middot; underperforms</span>
+    <h3>Rank-aware thresholds</h3>
+    <p>The break-even confidence for adding another match genuinely does rise with
+    how many are already predicted &mdash; from <span class="mono">0.44</span> for
+    the first of five to an <span class="mono">0.80</span> asymptote. Implemented,
+    it scored <span class="mono">0.9038</span> against
+    <span class="mono">0.9024</span> for a flat cut. A gain of
+    <span class="mono">0.0014</span> is not worth the added complexity.</p>
+  </div>
+
+  <div class="find x">
+    <span class="tag x">Rejected &middot; costs recall</span>
+    <h3>Short-circuit routing on exact matches</h3>
+    <p>Skipping fuzzy search once an exact match is found assumes one match per
+    entity. The data says otherwise: entities average 3.46 matches and reach 11.
+    An entity with an exact Source&nbsp;2 hit and a badly mangled Source&nbsp;3 hit
+    would silently lose the second.</p>
+  </div>
+
+  <div class="find x">
+    <span class="tag x">Rejected &middot; backwards</span>
+    <h3>Intersecting two retrieval methods</h3>
+    <p>Keeping only pairs found by both sparse and dense retrieval discards exactly
+    the candidates that one method found and the other missed, which is the entire
+    reason for running two. Blocking takes the union; agreement between methods
+    belongs downstream as a feature.</p>
+  </div>
+
+  <div class="find x">
+    <span class="tag x">Rejected &middot; wrong structure</span>
+    <h3>Union-Find for transitive candidates</h3>
+    <p>The underlying idea is sound &mdash; reaching a Source&nbsp;3 record through a
+    Source&nbsp;2 bridge. Union-Find computes <em>unbounded</em> transitive closure
+    and cannot be stopped after one hop, so a single bad link merges two unrelated
+    clusters. Under a precision-weighted metric that is the worst available failure
+    mode. A bounded one-hop expansion gets the same benefit with a hard cap.</p>
+  </div>
+
+  <div class="find o">
+    <span class="tag o">Diagnosed, then fixed</span>
+    <h3>The model's scores were not probabilities</h3>
+    <p>Training ran at <span class="mono">16.8%</span> positives against a true rate
+    of <span class="mono">2.6%</span>, leaving the model badly overconfident: a score
+    of <span class="mono">0.6</span> corresponded to a
+    <span class="mono">16%</span> chance of being correct. This is why the
+    theory-derived thresholds failed &mdash; they assume the score means
+    <em>P(correct)</em>. A prior-shift correction restores calibration
+    (<span class="mono">p&isin;[0.7,0.9)</span> now maps to an actual rate of
+    <span class="mono">0.818</span>) and puts the optimal flat threshold at
+    <span class="mono">0.67</span>, matching the value derived from the metric
+    beforehand.</p>
+  </div>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">06</span><h2>France, which cannot be measured</h2></div>
+
+  <p>France is 15% of the test set and appears nowhere in training, so its recall is
+  inferred rather than measured. Three pieces of indirect evidence, stated as such:</p>
+  <ul>
+    <li><strong>The configuration choice transfers.</strong> Configurations rank
+    almost identically by US and by India recall &mdash; 86.8% pairwise ordering
+    agreement, identical top four. The choice is not country-specific.</li>
+    <li><strong>The hard case is India, not France.</strong> The feared failure mode,
+    an unreadable writing system, is an India problem that transliteration solves.
+    France is Latin-script, and the US column is healthier than the India column on
+    every name signal.</li>
+    <li><strong>Candidate counts look normal.</strong> On real test data France
+    receives 127.3 candidates per entity against 124.7 for India and 129.0 for the
+    US, with no empty normalised keys. Nothing is failing silently.</li>
+  </ul>
+  <p>Country is used only as a partition key and is never one-hot encoded, so a new
+  label needs no code change.</p>
+</section>
+
+<section>
+  <div class="shead"><span class="snum">07</span><h2>Where the remaining 0.085 is</h2></div>
+
+  <p>Current honest score <span class="mono">0.904</span> against a blocking ceiling
+  of <span class="mono">0.989</span>. The decision rule is not the constraint &mdash;
+  three separate rule changes moved it by under
+  <span class="mono">0.002</span> combined. The gap is the model's ability to
+  separate. In priority order:</p>
+
+  <div class="find o">
+    <span class="tag o">Next</span>
+    <h3>Relative features</h3>
+    <p>Every feature so far judges a pair in isolation. A similarity of 0.7 means
+    very different things depending on whether the entity's best candidate scores
+    0.72 or 0.98. Rank within entity, gap to the top candidate, and ratio to the
+    entity's mean encode the competition between candidates directly, which is what a
+    per-entity metric rewards.</p>
+  </div>
+
+  <div class="find o">
+    <span class="tag o">Next</span>
+    <h3>Train on all the data</h3>
+    <p>The current model saw 400,000 of 2,562,165 available labelled pairs.</p>
+  </div>
+
+  <div class="find o">
+    <span class="tag o">Next</span>
+    <h3>A dedicated singleton decision</h3>
+    <p>At the operating threshold, 85% of singletons are correctly left empty. Each
+    of the remaining 15% costs a full <span class="mono">1.0</span> on that entity.
+    &ldquo;Does this entity match anything at all&rdquo; is a different question from
+    &ldquo;which records does it match&rdquo;, and deserves its own treatment.</p>
+  </div>
+
+  <div class="find o">
+    <span class="tag o">Open, unmeasured</span>
+    <h3>Still untested</h3>
+    <p>Character n-gram range (2,4) &mdash; roughly three times the cost of (3,3),
+    dropped before a clean comparison, so (3,3) is chosen on cost rather than on
+    measured superiority. Also untested: multilingual embeddings as an additional
+    union pass, bounded one-hop Source&nbsp;2 to Source&nbsp;3 expansion, and a
+    numeric-address-only blocking key.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Every figure above is reproducible from the scripts in the repository. Blocking
+  measurements come from 20,000 sampled queries against the full unsampled index;
+  matcher measurements come from 4,000 held-out entities scored against their
+  complete candidate sets. Where a number is an estimate or an assumption, it says
+  so.</p>
+</footer>
+
+</div>
