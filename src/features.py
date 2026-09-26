@@ -191,6 +191,50 @@ def number_compat(a: set[str], b: set[str]) -> float:
     return hit / min(len(a), len(b))
 
 
+
+def idf_containment(a: set[str], b: set[str], idf: dict[str, float]) -> float:
+    """Shared weight over the SMALLER side's weight, not the union's.
+
+    One name is often the other plus something: "ankit sons" against "shri
+    ankit sons", "i midland" against "i midland centre". Every token of the
+    shorter is present, yet jaccard reads 0.67 because it divides by the
+    union and charges the pair for words only one source carries. Dividing by
+    the smaller side reads 1.0, which is what containment means.
+
+    Weighted by IDF so that being contained matters only when what is shared
+    is distinctive: a short name made of common words sits inside many longer
+    ones without implying anything.
+    """
+    if not a or not b:
+        return 0.0
+    small = min(sum(idf.get(t, 12.0) for t in a), sum(idf.get(t, 12.0) for t in b))
+    if small <= 0:
+        return 0.0
+    return sum(idf.get(t, 12.0) for t in a & b) / small
+
+
+_ORDINAL = {"first": "1", "second": "2", "third": "3", "fourth": "4",
+            "fifth": "5", "sixth": "6", "seventh": "7", "eighth": "8",
+            "ninth": "9", "tenth": "10", "eleventh": "11", "twelfth": "12",
+            "thirteenth": "13", "fourteenth": "14", "fifteenth": "15",
+            "twentieth": "20", "thirtieth": "30"}
+
+
+def ordinal_tokens(addr: str) -> frozenset[str]:
+    """Street ordinals as digits, however the source spelled them.
+
+    One source writes 11th and the other eleventh, and numbered streets are
+    common enough in US addresses that the two never meet.
+    """
+    out = set()
+    for t in addr.split():
+        if t in _ORDINAL:
+            out.add(_ORDINAL[t])
+        elif len(t) > 2 and t[:-2].isdigit() and t[-2:] in ("st", "nd", "rd", "th"):
+            out.add(t[:-2])
+    return frozenset(out)
+
+
 def pair_features(n1: str, a1: str, n2: str, a2: str,
                   idf: dict[str, float] | None = None) -> list[float]:
     """Feature vector for one candidate pair. Order matches FEATURE_NAMES."""
@@ -202,6 +246,7 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
     r1, r2 = region_tokens(a1), region_tokens(a2)
     p1n, p2n = phonetic(n1), phonetic(n2)
     h1, h2 = house_number(a1), house_number(a2)
+    o1, o2 = ordinal_tokens(a1), ordinal_tokens(a2)
     k1n, k2n = skeleton(n1), skeleton(n2)
 
     f = [
@@ -262,6 +307,11 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
         float(bool(h1) and h1 == h2),
         float(bool(h1) and bool(h2) and h1 != h2 and _digit_subseq(h1, h2)),
         float(bool(h1) != bool(h2)),
+
+        # --- containment, for the very common "one side has extra words" ---
+        idf_containment(t1n, t2n, idf or {}),
+        idf_containment(t1a, t2a, idf or {}),
+        jaccard(o1, o2),
         float(not a1 or not a2),                    # an address is missing
         float(not n1 or not n2),
 
@@ -442,6 +492,7 @@ FEATURE_NAMES = [
     "name_skel_jac", "name_skel_jw", "name_skel_exact",
     "num_jac_canon", "num_near", "num_compat",
     "house_exact", "house_digit_drop", "house_onesided",
+    "name_contain_idf", "addr_contain_idf", "ordinal_jac",
     "addr_missing", "name_missing",
     "region_match", "region_conflict", "region_onesided",
     "addr_prefix_overlap", "name_prefix_overlap", "num_prefix_overlap",
