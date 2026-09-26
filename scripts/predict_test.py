@@ -214,7 +214,7 @@ def _load_crossencoder(path: str, quantize: bool):
     return tok, mdl
 
 
-def _cascade(pending: list, text: dict) -> int:
+def _cascade(pending: list, text: dict) -> list[tuple[str, str, float, float]]:
     """Rescore the uncertain band with the cross-encoder, in place.
 
     The first stage is near-certain about nearly every pair: under 0.05 they
@@ -238,12 +238,14 @@ def _cascade(pending: list, text: dict) -> int:
             b = text[cl[ci]]
             jobs.append((ei, int(ci), left, f"{b[0]} | {b[1]}"))
     if not jobs:
-        return 0
+        return []
+    first = [float(pending[ei][2][ci]) for ei, ci, _, _ in jobs]
     # Batches of similar length. Padding runs to the longest member, so
     # grouping short pairs together stops them being padded up to the longest
     # address in the shard; on this data it is worth about a third of the time.
     order = sorted(range(len(jobs)),
                    key=lambda k: len(jobs[k][2]) + len(jobs[k][3]))
+    raw = [0.0] * len(jobs)
     with torch.no_grad():
         for s in range(0, len(order), bs):
             j = order[s:s + bs]
@@ -253,8 +255,14 @@ def _cascade(pending: list, text: dict) -> int:
             ce = torch.sigmoid(mdl(**enc).logits.squeeze(-1)).numpy()
             for k, v in zip(j, np.atleast_1d(ce)):
                 ei, ci = jobs[k][0], jobs[k][1]
-                pending[ei][2][ci] = w * float(v) + (1.0 - w) * pending[ei][2][ci]
-    return len(jobs)
+                raw[k] = float(v)
+                pending[ei][2][ci] = w * raw[k] + (1.0 - w) * pending[ei][2][ci]
+    # Both scores for every band pair, so a threshold or a blend weight can be
+    # changed afterwards without scoring 173 million pairs again. Any threshold
+    # inside the band only ever reclassifies band pairs: what sits above the
+    # band is kept whatever the threshold, and what sits below never is.
+    return [(pending[jobs[k][0]][0], pending[jobs[k][0]][1][jobs[k][1]],
+             first[k], raw[k]) for k in range(len(jobs))]
 
 
 def _score_shard(shard: str) -> tuple[str, list[str], int]:
@@ -298,7 +306,15 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
         pending.append([q, cl, p])
 
     if _W.get("ce_mdl") is not None:
-        _cascade(pending, text)
+        band = _cascade(pending, text)
+        if _W.get("band_dir") and band:
+            # Beside the output rather than inside the work directory, which is
+            # deleted once the run completes.
+            bp = Path(_W["band_dir"]) / (Path(shard).name + ".tsv")
+            tmp = bp.with_suffix(".tmp")
+            tmp.write_text("".join(f"{q}\t{c}\t{f:.6f}\t{v:.6f}\n"
+                                   for q, c, f, v in band), encoding="utf-8")
+            tmp.rename(bp)
     for q, cl, p in pending:
         keep = [cl[i] for i in np.flatnonzero(p >= thr)]
         if keep:
@@ -340,6 +356,10 @@ def main() -> None:
                          "longest seen is 94, so this truncates nothing; with "
                          "length-sorted batches a high cap costs almost nothing")
     ap.add_argument("--ce-batch", type=int, default=128)
+    ap.add_argument("--dump-band", action="store_true",
+                    help="write both scores for every band pair beside each "
+                         "shard result, so the threshold and blend weight can "
+                         "be re-swept without a second scoring pass")
     ap.add_argument("--ce-quantize", action="store_true",
                     help="int8-quantise the cross-encoder; measured slower than "
                          "float32 here, so off unless the hardware differs")
@@ -410,6 +430,11 @@ def main() -> None:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    band_dir = None
+    if args.dump_band:
+        band_dir = out.with_suffix(".band")
+        band_dir.mkdir(exist_ok=True)
+        log(f"band scores go to {band_dir}")
     dump = open(args.dump_candidates, "w", encoding="utf-8") if args.dump_candidates else None
     if dump:
         dump.write("source1_entity_id\tcandidate_entity_ids\n")
@@ -441,7 +466,7 @@ def main() -> None:
             _W.update(text=text, idf=idf, keep_cols=keep_cols, bi=bi,
                       thr=args.threshold, ce_lo=ce_lo, ce_hi=ce_hi,
                       ce_w=args.ce_weight, ce_maxlen=args.ce_maxlen,
-                      ce_batch=args.ce_batch)
+                      ce_batch=args.ce_batch, band_dir=str(band_dir) if band_dir else "")
             import multiprocessing as mp
             todo = []
             for sp in paths:
