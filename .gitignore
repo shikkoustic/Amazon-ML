@@ -62,3 +62,6 @@ reports/*.log
 # Submission staging: code is tracked at source, outputs are gigabytes
 submission/
 output/
+
+# Cross-encoder training export: regenerable from the pipeline
+ce_data/
