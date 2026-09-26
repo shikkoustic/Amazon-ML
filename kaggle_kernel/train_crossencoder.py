@@ -93,12 +93,15 @@ def main():
     log(f"{len(df):,} pairs, {df.label.mean():.1%} positive, "
         f"{int(df.in_band.sum()):,} in band")
 
-    # Split by Source-1 entity, never by pair: several pairs share an entity
-    # and a pair-level split would put the same entity on both sides.
-    ents = df.s1_id.unique()
+    # The first stage's own split, reproduced exactly: seed 42, 75/25 by
+    # Source-1 entity over every entity in the training table. Anything else
+    # makes the two models' in-band AUCs incomparable, and comparing them is
+    # the only reason to run this.
+    all_ents = np.sort(df.s1_id.unique())
     rng = np.random.default_rng(42)
-    rng.shuffle(ents)
-    va_e = set(ents[int(0.85 * len(ents)):])
+    order = all_ents.copy()
+    rng.shuffle(order)
+    va_e = set(order[int(0.75 * len(order)):].tolist())
     is_va = df.s1_id.isin(va_e)
     tr, va = df[~is_va], df[is_va]
     log(f"{len(tr):,} train / {len(va):,} val pairs")
@@ -155,6 +158,7 @@ def main():
         band = va.in_band.to_numpy().astype(bool)
         a_all = auc(yv, pv)
         a_band = auc(yv[band], pv[band])
+        # Both models now scored on entities neither was fitted on.
         a_stage1 = auc(yv[band], va.stage1.to_numpy()[band])
         log(f"epoch {ep+1}: AUC all {a_all:.4f} | IN BAND cross-encoder "
             f"{a_band:.4f} vs first stage {a_stage1:.4f}")
