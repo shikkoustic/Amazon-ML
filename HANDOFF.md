@@ -1,8 +1,13 @@
 # Amazon ML Challenge 2026 — Handoff
 
 Everything needed to continue cold. Repo `shikkoustic/Amazon-ML`, branch
-`claude/magical-bell-viflxk`. Read §5 before changing anything: it lists the
-mistakes that already cost real score.
+`claude/magical-bell-viflxk`.
+
+Read three sections before touching anything. **§3** says where the score is
+actually lost, which is not where it feels like it is lost. **§3a** is a hard
+structural property of the ground truth that we ignored for two days and that
+held-out validation is structurally incapable of showing. **§5** lists the
+mistakes that already cost real score on the board.
 
 ---
 
@@ -79,6 +84,8 @@ Leaderboard, in order:
     0.907   v1   combo char-trigram candidates, 69-feature model
     0.908   v2   France normalisation fix
     0.912   v3p  France+India re-scored, matched candidates, 79 features
+    ?       v3b  44/48 shards re-scored + the partition constraint of §3a
+                 (handed over as four joinable parts; score not yet known)
 
 Leaders are at **0.988–0.99**. A teammate's other team reports 0.925.
 
@@ -134,6 +141,56 @@ them.
 
 ---
 
+## 3a. THE GROUND TRUTH IS A PARTITION
+
+Found late, on day three, and it is the kind of thing to check on day one.
+
+Across all 2,206,821 training entities, every one of the 7,638,365 matched
+Source-2 and Source-3 records is claimed by **exactly one** Source-1 entity.
+Not 99.9% — every one. Verify it in thirty seconds:
+
+    counts = Counter(x for line in ground_truth for x in line.matched.split(","))
+    Counter(counts.values())        # -> {1: 7638365}
+
+A pairwise scorer cannot respect that, and ours does not. In the v3 submission
+84,437 predicted matches — 1.54% of them — are records that two or more
+entities both claim, and every such record carries at least one error by
+construction. `scripts/resolve_conflicts.py` keeps the strongest claim and
+drops the rest; on v3b it dropped 49,794 claims, of which at least
+49,794 minus the tie-break's mistakes were false positives.
+
+**Why §6 says this was tested and found worthless — and why §6 is wrong about
+it.** A greedy unique-record rule scores *identically* to a flat threshold on
+validation, 0.9319 at every threshold from 0.3 to 0.7, and that is not a null
+result: it is an artefact of the split. Held-out validation keeps a quarter of
+the entities, so a contested record's real competitor is usually a training
+entity that is not in the candidate pool at all. Conflicts are four times
+denser in the submission, where every entity is present. **The constraint
+cannot be measured on a held-out entity split. Do not conclude from validation
+that a global constraint is worthless.**
+
+The other direction — lowering the threshold because uniqueness protects
+precision — does *not* work, and this was measured rather than assumed: the
+constraint almost never binds above 0.5, so it buys no room to be greedier.
+It removes wrong claims; it does not license new ones.
+
+**Related and unexploited.** 74% of training Source-2 and Source-3 records are
+matched to some entity. Our test submission claims only 54% of test records.
+Test also has proportionally more Source-2/3 records per Source-1 entity than
+train (5.75 against 4.67), so if coverage carries over, the true match count
+per test entity is nearer 4.3 than the 3.18 we predict. That points at the test
+threshold being too high, which is testable now for free — see §7.
+
+Two features nobody has built follow from the same symmetry. Every relative
+feature we have is computed within *the entity's* candidate set: rank, gap to
+best, z-score. The mirror image — a record's rank among the entities claiming
+it, its gap to the best other claimant, whether this entity is its argmax —
+does not exist in the model. It cannot be measured honestly on a held-out
+entity split either, for the reason above, which is presumably why it was
+never built.
+
+---
+
 ## 4. WHAT EXISTS
 
 ### Data
@@ -169,8 +226,14 @@ was trained on. Use these.**
     scripts/build_relative.py    pair features + within-entity relative features
     scripts/train_v2.py          trains the matcher, sweeps the threshold
     scripts/predict_test.py      scores test candidates -> matching_results.tsv
+                                 both stages, resumable, --dump-band (see §7)
+    scripts/splice_shards.py     finished shards + fallback -> valid submission
+    scripts/resolve_conflicts.py enforce the §3a partition on any predictions
     scripts/evaluate.py          scores any predictions file, stdlib only
-    kaggle_kernel/train_crossencoder.py   cross-encoder on Kaggle GPU
+    kaggle_kernel/train_crossencoder.py   cross-encoder training on Kaggle GPU
+    kaggle_kernel/crossencoder_trained.py the kernel that produced the weights
+    models/crossencoder_v1/      the fine-tuned MiniLM, committed (see §7)
+    docs/Documentation.md        the filled competition write-up
 
 `predict_test.py` is resumable: each shard writes its result and `--resume`
 skips finished ones. It shards by country first (safe — matched records always
@@ -244,7 +307,7 @@ checkpoint. `word_candidates.py` and `predict_test.py` both do;
 
     raising blocking recall, three separate times   +0.000 to +0.002 each
     training data 7x larger                         recall flat at 0.856
-    exclusivity constraint (one-to-many)            zero conflicts at any threshold
+    exclusivity as a licence to lower the threshold  constraint rarely binds >0.5
     top-k and rank-aware decision rules             all below a flat threshold
     expected-F_0.5 decision rule with calibration   -0.0005 against flat
     scaling the variant table 286 -> 6,042          touches ~5% of pairs
@@ -257,63 +320,134 @@ The specialist result is the important one: a GBM on the same features does
 *worse* than the general model inside the band. The features are spent, which
 is the whole argument for the cross-encoder.
 
+**Read this list with §3a in mind.** One line in an earlier version of it said
+the exclusivity constraint was worthless because validation showed zero
+conflicts at every threshold. That was true and the conclusion drawn from it
+was wrong: the entity split hides the conflicts. A rejection is only as good as
+the split it was measured on, and a global constraint is exactly the thing a
+per-entity split cannot see.
+
 ---
 
-## 7. THE CROSS-ENCODER CASCADE
+## 7. THE CROSS-ENCODER CASCADE — BUILT AND WIRED IN
 
-The one lever with real magnitude left.
-
-**Why.** The band the first stage cannot decide is 0.42% of pairs and holds
+**Why.** The band the first stage cannot decide is about 1% of pairs and holds
 all the remaining loss. Hand-built features cannot separate it (§6). A model
-reading the raw text can: MiniLM reached 0.8907 in-band AUC against the first
+reading the raw text can: MiniLM reaches 0.8907 in-band AUC against the first
 stage's 0.8043.
 
-**Measured.** Blending the cross-encoder 60/40 with the first stage inside the
-band: validation 0.9319 → **0.9427**, +0.0108. Weight 1.0 gives +0.0095, so
-the first stage still carries signal where it is unsure.
+**Where it lives.** `models/crossencoder_v1/` — force-added past the ignore
+rule because it is the one artefact in the repo that does not regenerate from a
+script. It came off a Kaggle GPU and the only copy was in `/tmp`. The kernel
+that produced it is `kaggle_kernel/crossencoder_trained.py`.
 
-**Known limit.** That prototype trained 6 minutes on 25,868 in-band pairs.
-A perfect band resolution is worth +0.043, so it captured about a quarter.
-`candidate_pairs_combo_big.tsv` (200,000 entities, 20M pairs) exists to give
-roughly 250,000 in-band pairs — 10× the training data — for a larger model.
-That is the open work.
+**Measured band sweep**, held-out, blend weight and threshold both swept:
 
-**To apply it to test you need first-stage scores for every test pair**, to
-know which fall in the band. `predict_test.py --dump-scores` does this but
-requires `--workers 1`. The current v3 run does not dump them, so a second
-pass is needed. Plan for that before starting a scoring run.
+    band            band pairs    F_0.5     delta
+    none (baseline)          -   0.9319         -
+    0.20 - 0.80          2,101   0.9388   +0.0068
+    0.15 - 0.85          2,690   0.9415   +0.0095
+    0.10 - 0.90          3,534   0.9427   +0.0108
+    0.05 - 0.95          5,132   0.9437   +0.0117
+    0.02 - 0.98          7,523   0.9440   +0.0121
+
+0.05–0.95 at weight 0.6 is the operating point. Widening further buys 0.0004
+for 47% more transformer time.
+
+**How it runs.** `predict_test.py --crossencoder models/crossencoder_v1
+--ce-band 0.05,0.95 --ce-weight 0.6 --threshold 0.55 --workers 2 --dump-band`.
+Both stages live in each worker: it scores a whole shard with LightGBM,
+collects the band pairs, runs the transformer over them in one batched sweep,
+blends, and only then thresholds. The earlier plan of a separate `--dump-scores`
+pass to find the band is dead — it needs `--workers 1`, which on 173M pairs is
+another full day.
+
+Per-shard rather than per-entity batching is what makes it affordable: an
+entity averages half a band pair, so batching per entity would run the
+transformer a hundred times smaller than it wants.
+
+Throughput, measured before choosing defaults:
+
+    float32, cap 128, unsorted batches      82 pairs/s
+    cap 64, length-sorted batches          154 pairs/s
+    int8 dynamic, cap 64, sorted           146 pairs/s
+
+Length-sorted batching is worth 1.9x; int8 is worth nothing here and moves
+scores, so it is behind a flag that defaults off. The cap is 96: the 99th
+percentile of these pairs is 74 tokens and the longest is 94, and truncating at
+64 moved individual scores by up to 0.94 — exactly the pairs the band contains.
+
+**`--dump-band` is the important flag.** It writes the first-stage and
+cross-encoder score for every band pair beside the output. Any threshold
+*inside* the band only ever reclassifies band pairs — what scored above the band
+is kept whatever the threshold, and what scored below it never is — so the dump
+makes the threshold and the blend weight re-sweepable afterwards from a few
+hundred megabytes instead of another 173M-pair pass. Given the §3a coverage
+argument that our test threshold is too high, this is how to test it: generate
+0.50 / 0.55 / 0.65 variants from the dump in seconds and submit them.
+
+**Known limit.** The prototype trained 6 minutes on 25,868 in-band pairs. A
+perfect band resolution is worth +0.043, so it captured about a quarter.
+`data/interim/wordcand/candidate_pairs_combo_big.tsv` (200,000 entities, 20M
+pairs) exists to yield roughly 250,000 in-band pairs — 10x the training data —
+for a larger model. That is the open work with real magnitude left.
 
 **Licensing.** MiniLM is Apache-2.0 and 22M parameters, inside the rules. The
 pretrained weights are a general language model, not a lookup of any business,
-and only the provided training data is used to fine-tune.
+and only the provided training data fine-tunes it.
 
 ---
 
 ## 8. IN FLIGHT AND NEXT
 
-**Running now:** `predict_test.py` producing `output/matching_results_v3.tsv`
-with matched candidates, 79 features, threshold 0.70, two workers. 40/48
-shards. France and India complete; US in progress.
+**Running:** the v3 pass, `output/matching_results_v3.tsv`, 79 features,
+threshold 0.70, two workers, 44/48 shards. France and India complete, four US
+shards left. A shell script waits on its PID and then launches the cascade run
+(§7) automatically into `data/interim/predict_work_v4/`, writing
+`output/matching_results_v4.tsv` with band dumps in `output/matching_results_v4.band/`.
+Expect roughly 6h of feature scoring plus 1.5-3h of transformer time; splice
+and submit from it at any point rather than waiting.
 
-**Already submitted from it:** `output/matching_results_v3partial.tsv` — v3
-rows for France and India, v2 rows for US — scored 0.912.
+**Submitted:** `matching_results_v3partial.tsv` scored 0.912. `v3b_unique`
+(44 shards plus §3a) is with the user, score not yet known.
+
+**Tooling now in place:**
+
+    scripts/splice_shards.py       finished shards + fallback -> valid submission
+    scripts/resolve_conflicts.py   enforce the §3a partition on any predictions file
+    docs/Documentation.md          the filled competition write-up (was a blocker)
+
+`splice_shards.py` exists because waiting for a run to finish before producing
+anything is how a day went by with a working pipeline and nothing on the board.
+Use it constantly.
 
 **Next, in order:**
 
-1. When US finishes, write the full v3 and submit. Expect ~0.9145.
-2. Second scoring pass with `--dump-scores` to get first-stage scores for all
-   test pairs, so the band can be identified.
-3. Build features on `candidate_pairs_combo_big.tsv`, extract in-band pairs,
-   retrain the cross-encoder larger on Kaggle GPU, re-measure the cascade.
-4. Apply the cascade to the test band, submit.
-5. Final package: both TSVs, `code/business_entity_resolution/`, and a filled
-   `Documentation_template.md`. **The methodology document is not written
-   yet** and is a hard requirement.
+1. When v4 lands, resolve conflicts on it and submit. Cascade plus partition.
+2. From `output/matching_results_v4.band/`, generate threshold variants and
+   submit two or three. §3a argues 0.55 is likely still too high on test; this
+   costs seconds per variant.
+3. Retrain the cross-encoder on ~250,000 in-band pairs from
+   `candidate_pairs_combo_big.tsv` on Kaggle GPU, re-measure, re-run.
+4. Build the mirror-image relative features of §3a (a record's rank among the
+   entities claiming it). They cannot be validated on a held-out entity split,
+   so measure them by submission.
+5. Final package: both TSVs, `code/business_entity_resolution/`,
+   `docs/Documentation.md`. Note the late rule change in §1 — a *smaller*
+   candidate set ranks higher, and ours is 100/entity. Pruning
+   `candidate_pairs.tsv` to the top few per entity by first-stage score is
+   probably worth doing, and costs nothing at submission time.
 
-**Realistic expectation.** Full v3 ~0.9145, plus the current cascade ~0.925,
-plus a scaled cross-encoder perhaps 0.93–0.94. 0.95 has not been shown to be
-reachable from this architecture; every other lever has been measured and
-exhausted.
+**Realistic expectation.** v4 around 0.925-0.93, plus the partition fix, plus
+whatever the threshold sweep finds. 0.95 has not been shown to be reachable
+from this architecture; the leaders at 0.988 are essentially at our candidate
+ceiling of 0.9886, which means they are matching almost perfectly rather than
+blocking better.
+
+**Housekeeping.** The repository is **public**. Everything here — the
+decomposition, the traps, the methodology — is readable by every other team.
+The user has been told; it is one click in Settings. No submission output is
+committed for that reason.
 
 ---
 
