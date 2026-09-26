@@ -179,11 +179,82 @@ def model_n_features(path: Path) -> int:
     raise ValueError(f"no max_feature_idx in {path}")
 
 
-def _init_worker(model_path: str) -> None:
+def _init_worker(model_path: str, ce_path: str = "",
+                 ce_quantize: bool = True) -> None:
     import lightgbm as lgb
     # One thread per worker: parallelism comes from the pool, and letting each
     # worker also thread oversubscribes the cores and runs slower.
     _W["model"] = lgb.Booster(model_file=model_path)
+    if ce_path:
+        _W["ce_tok"], _W["ce_mdl"] = _load_crossencoder(ce_path, ce_quantize)
+
+
+def _load_crossencoder(path: str, quantize: bool):
+    """Load the second-stage cross-encoder for this worker.
+
+    Imported here rather than at module scope so a run without --crossencoder
+    never pays for torch, and so the parent process stays free of it: torch
+    starts its own thread pool, and forking after that has the same effect as
+    forking after LightGBM's OpenMP is up.
+    """
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    import torch
+    # Two threads even though the LightGBM side runs one per worker: the two
+    # stages take turns inside a shard, so while one worker is in its transformer
+    # pass the other is usually still building features on a single core.
+    torch.set_num_threads(2)
+    tok = AutoTokenizer.from_pretrained(path)
+    mdl = AutoModelForSequenceClassification.from_pretrained(path).eval()
+    if quantize:
+        # Off by default: int8 on the linear layers measured 146 pairs/s against
+        # 154 for float32 on these cores, so it costs accuracy for no speed. The
+        # flag stays for a machine where it does pay.
+        mdl = torch.quantization.quantize_dynamic(
+            mdl, {torch.nn.Linear}, dtype=torch.qint8).eval()
+    return tok, mdl
+
+
+def _cascade(pending: list, text: dict) -> int:
+    """Rescore the uncertain band with the cross-encoder, in place.
+
+    The first stage is near-certain about nearly every pair: under 0.05 they
+    run 0.1% true and over 0.95 99.2% true, so about 1% of pairs carry every
+    mistake. Those are the ones where the 79 hand-built features have run out
+    of signal -- a renamed branch, a transliterated street, a suite number
+    that moved -- and where reading the two strings together still helps.
+    Held-out in-band AUC 0.8043 first stage, 0.8907 cross-encoder; blending
+    them 0.6/0.4 took validation from 0.9319 to 0.9427.
+    """
+    import numpy as np
+    import torch
+    lo, hi, w = _W["ce_lo"], _W["ce_hi"], _W["ce_w"]
+    tok, mdl = _W["ce_tok"], _W["ce_mdl"]
+    maxlen, bs = _W["ce_maxlen"], _W["ce_batch"]
+    jobs: list[tuple[int, int, str, str]] = []
+    for ei, (q, cl, p) in enumerate(pending):
+        a = text[q]
+        left = f"{a[0]} | {a[1]}"
+        for ci in np.flatnonzero((p >= lo) & (p < hi)):
+            b = text[cl[ci]]
+            jobs.append((ei, int(ci), left, f"{b[0]} | {b[1]}"))
+    if not jobs:
+        return 0
+    # Batches of similar length. Padding runs to the longest member, so
+    # grouping short pairs together stops them being padded up to the longest
+    # address in the shard; on this data it is worth about a third of the time.
+    order = sorted(range(len(jobs)),
+                   key=lambda k: len(jobs[k][2]) + len(jobs[k][3]))
+    with torch.no_grad():
+        for s in range(0, len(order), bs):
+            j = order[s:s + bs]
+            enc = tok([jobs[k][2] for k in j], [jobs[k][3] for k in j],
+                      truncation=True, max_length=maxlen, padding=True,
+                      return_tensors="pt")
+            ce = torch.sigmoid(mdl(**enc).logits.squeeze(-1)).numpy()
+            for k, v in zip(j, np.atleast_1d(ce)):
+                ei, ci = jobs[k][0], jobs[k][1]
+                pending[ei][2][ci] = w * float(v) + (1.0 - w) * pending[ei][2][ci]
+    return len(jobs)
 
 
 def _score_shard(shard: str) -> tuple[str, list[str], int]:
@@ -200,6 +271,10 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
     out_path = Path(shard).parent / "done" / (Path(shard).name + ".tsv")
     rows: list[str] = []
     scored = 0
+    # Scores for the whole shard before any of them is turned into a decision.
+    # The cross-encoder pass wants every band pair in the shard at once, so it
+    # can batch them; deciding entity by entity would run it 128 times smaller.
+    pending: list[list] = []
     for q, cands in union.items():
         a = text.get(q)
         if a is None or not cands:
@@ -220,6 +295,11 @@ def _score_shard(shard: str) -> tuple[str, list[str], int]:
         full = np.hstack([X, rel])[:, keep_cols]
         p = model.predict(full, num_threads=1)
         scored += len(cl)
+        pending.append([q, cl, p])
+
+    if _W.get("ce_mdl") is not None:
+        _cascade(pending, text)
+    for q, cl, p in pending:
         keep = [cl[i] for i in np.flatnonzero(p >= thr)]
         if keep:
             rows.append(f"{q}\t{','.join(sorted(keep))}")
@@ -248,6 +328,21 @@ def main() -> None:
                     help="keep shards already scored and continue")
     ap.add_argument("--work", default="",
                     help="scratch directory for shards and their results")
+    ap.add_argument("--crossencoder", default="",
+                    help="directory of the second-stage cross-encoder; when "
+                         "given, pairs inside --ce-band are rescored with it")
+    ap.add_argument("--ce-band", default="0.05,0.95",
+                    help="first-stage score range handed to the cross-encoder")
+    ap.add_argument("--ce-weight", type=float, default=0.6,
+                    help="weight on the cross-encoder in the blend")
+    ap.add_argument("--ce-maxlen", type=int, default=96,
+                    help="99th percentile of these pairs is 74 tokens and the "
+                         "longest seen is 94, so this truncates nothing; with "
+                         "length-sorted batches a high cap costs almost nothing")
+    ap.add_argument("--ce-batch", type=int, default=128)
+    ap.add_argument("--ce-quantize", action="store_true",
+                    help="int8-quantise the cross-encoder; measured slower than "
+                         "float32 here, so off unless the hardware differs")
     ap.add_argument("--workers", type=int, default=1,
                     help="parallel scoring processes; forked after the text map "
                          "is built so they share it copy-on-write")
@@ -258,6 +353,10 @@ def main() -> None:
                  "are written in entity order by the single scoring loop")
     # Exactly the training column order: build_relative writes
     # FEATURE_NAMES then REL_NAMES, and train_v2 filters DEAD out of that.
+    ce_lo, ce_hi = (float(x) for x in args.ce_band.split(","))
+    if args.crossencoder and args.workers == 1:
+        sys.exit("--crossencoder needs --workers 2 or more: the serial loop "
+                 "decides one entity at a time, which cannot batch the band")
     built = FEATURE_NAMES + REL_NAMES
     feats = [f for f in built if f not in DEAD]
     keep_cols = np.array([i for i, f in enumerate(built) if f not in DEAD])
@@ -340,7 +439,9 @@ def main() -> None:
             # Publish the shared state, then fork: children inherit text and
             # idf copy-on-write, so four workers cost one copy, not four.
             _W.update(text=text, idf=idf, keep_cols=keep_cols, bi=bi,
-                      thr=args.threshold)
+                      thr=args.threshold, ce_lo=ce_lo, ce_hi=ce_hi,
+                      ce_w=args.ce_weight, ce_maxlen=args.ce_maxlen,
+                      ce_batch=args.ce_batch)
             import multiprocessing as mp
             todo = []
             for sp in paths:
@@ -362,7 +463,8 @@ def main() -> None:
                 continue
             with mp.get_context("fork").Pool(
                     args.workers, initializer=_init_worker,
-                    initargs=(str(CACHE / args.model),)) as pool:
+                    initargs=(str(CACHE / args.model), args.crossencoder,
+                              args.ce_quantize)) as pool:
                 for shard, rows, scored in pool.imap_unordered(
                         _score_shard, [str(x) for x in todo]):
                     n_pairs += scored
