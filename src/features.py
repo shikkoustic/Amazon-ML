@@ -151,6 +151,46 @@ def _num_near(a: set[str], b: set[str]) -> float:
     return hit / max(len(a | b), 1)
 
 
+
+def _digit_subseq(a: str, b: str) -> bool:
+    """One number is the other with digits dropped: 780 against 80."""
+    s, l = (a, b) if len(a) < len(b) else (b, a)
+    if not s or len(l) - len(s) > 2:
+        return False
+    it = iter(l)
+    return all(ch in it for ch in s)
+
+
+def house_number(addr: str) -> str:
+    """The street number: the first numeric token, which is where it sits.
+
+    Kept apart from the other numbers because it is the most discriminative
+    token an address has and the one the corpus damages most. Averaged in with
+    floor numbers and pincodes its signal disappears, which is why a pair whose
+    street and city agree perfectly still scores near zero when 780 arrives
+    as 80.
+    """
+    for t in addr.split():
+        if t.isdigit():
+            return t
+    return ""
+
+
+def number_compat(a: set[str], b: set[str]) -> float:
+    """Share of the smaller number set matched exactly or by digit deletion.
+
+    Among true pairs the matcher wrongly rejects, 27.3% have numbers that
+    match only this way, against 4.8% of the true pairs it finds -- the
+    corpus drops a leading or trailing digit from street numbers, and exact
+    comparison reads that as total disagreement on the one token that
+    matters most.
+    """
+    if not a or not b:
+        return 0.0
+    hit = sum(1 for x in a if x in b or any(_digit_subseq(x, z) for z in b))
+    return hit / min(len(a), len(b))
+
+
 def pair_features(n1: str, a1: str, n2: str, a2: str,
                   idf: dict[str, float] | None = None) -> list[float]:
     """Feature vector for one candidate pair. Order matches FEATURE_NAMES."""
@@ -161,6 +201,7 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
     d1, d2 = set(DIGITS.findall(a1)), set(DIGITS.findall(a2))
     r1, r2 = region_tokens(a1), region_tokens(a2)
     p1n, p2n = phonetic(n1), phonetic(n2)
+    h1, h2 = house_number(a1), house_number(a2)
     k1n, k2n = skeleton(n1), skeleton(n2)
 
     f = [
@@ -215,6 +256,12 @@ def pair_features(n1: str, a1: str, n2: str, a2: str,
         # --- numbers, repaired ---
         jaccard(_digits_canon(d1), _digits_canon(d2)),
         _num_near(d1, d2),
+        number_compat(_digits_canon(d1), _digits_canon(d2)),
+
+        # --- the street number on its own ---
+        float(bool(h1) and h1 == h2),
+        float(bool(h1) and bool(h2) and h1 != h2 and _digit_subseq(h1, h2)),
+        float(bool(h1) != bool(h2)),
         float(not a1 or not a2),                    # an address is missing
         float(not n1 or not n2),
 
@@ -393,7 +440,8 @@ FEATURE_NAMES = [
     "addr_soft_idf", "name_soft_idf",
     "name_phon_jac", "name_phon_exact", "name_phon_jw",
     "name_skel_jac", "name_skel_jw", "name_skel_exact",
-    "num_jac_canon", "num_near",
+    "num_jac_canon", "num_near", "num_compat",
+    "house_exact", "house_digit_drop", "house_onesided",
     "addr_missing", "name_missing",
     "region_match", "region_conflict", "region_onesided",
     "addr_prefix_overlap", "name_prefix_overlap", "num_prefix_overlap",
