@@ -65,3 +65,6 @@ output/
 
 # Cross-encoder training export: regenerable from the pipeline
 ce_data/
+
+# Teammate share bundle: a copy of tracked code plus a generated writeup
+share/
