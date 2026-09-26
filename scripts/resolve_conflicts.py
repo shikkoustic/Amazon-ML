@@ -136,8 +136,12 @@ def main() -> None:
             ids = t.column("entity_id").to_numpy(zero_copy_only=False)
             nm = t.column("name_norm").to_numpy(zero_copy_only=False)
             ad = t.column("addr_norm").to_numpy(zero_copy_only=False)
-            for i in np.flatnonzero(np.isin(ids, list(need))):
-                text[ids[i]] = (nm[i] or "", ad[i] or "")
+            # A set membership loop, not np.isin: these are object arrays, so
+            # np.isin falls back to a Python comparison per element against a
+            # sorted 250,000-entry array instead of one dict lookup.
+            for i, x in enumerate(ids):
+                if x in need:
+                    text[x] = (nm[i] or "", ad[i] or "")
             del t, ids, nm, ad
         log(f"text for {len(text):,} disputed records, "
             f"{len(missing):,} pairs need the similarity fallback")
