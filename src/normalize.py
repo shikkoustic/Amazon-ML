@@ -28,7 +28,7 @@ import unicodedata
 
 from unidecode import unidecode
 
-from .variants import VARIANTS
+from .variants import GLOBAL, SHORT, SHORT_COUNTRIES
 
 # Latin legal forms, plus the transliterated spellings observed coming out
 # of each Indic script once doubled letters are collapsed.
@@ -83,8 +83,9 @@ _CONFUSE = str.maketrans({"0": "o", "1": "l", "5": "s", "6": "g",
 
 # The variant table is keyed on tokens as they look after doubled letters are
 # collapsed, so both sides of it are collapsed here rather than at each lookup.
-_VARIANTS = {DOUBLED.sub(r"\1", k): DOUBLED.sub(r"\1", v)
-             for k, v in VARIANTS.items()}
+_GLOBAL = {DOUBLED.sub(r"\1", k): DOUBLED.sub(r"\1", v) for k, v in GLOBAL.items()}
+_SHORT = {DOUBLED.sub(r"\1", k): DOUBLED.sub(r"\1", v) for k, v in SHORT.items()}
+_WITH_SHORT = {**_GLOBAL, **_SHORT}
 
 
 def _unconfuse(tok: str) -> str:
@@ -102,7 +103,7 @@ def _singular(tok: str) -> str:
     return tok
 
 
-def canon_token(tok: str) -> str:
+def canon_token(tok: str, table: dict | None = None) -> str:
     """One spelling per meaning: rd and road, mh and maharashtra, s0lutions.
 
     Followed to a fixed point rather than applied a fixed number of times,
@@ -110,10 +111,11 @@ def canon_token(tok: str) -> str:
     and stopping early would land two spellings of one word on different
     tokens, which is the whole failure this exists to prevent.
     """
+    tbl = _GLOBAL if table is None else table
     t = _unconfuse(tok)
     for _ in range(4):
-        nxt = _singular(_VARIANTS.get(t, t))
-        nxt = _VARIANTS.get(nxt, nxt)
+        nxt = _singular(tbl.get(t, t))
+        nxt = tbl.get(nxt, nxt)
         if nxt == t:
             break
         t = nxt
@@ -122,7 +124,7 @@ def canon_token(tok: str) -> str:
 
 def normalize(s: str | None, *, translit: bool = True, collapse: bool = True,
               drop_legal: bool = True, drop_stop: bool = True,
-              canon: bool = True) -> str:
+              canon: bool = True, country: str | None = None) -> str:
     """Canonical form used for both indexing and querying.
 
     Never returns empty for a non-null input: if suffix removal would
@@ -140,7 +142,10 @@ def normalize(s: str | None, *, translit: bool = True, collapse: bool = True,
         s = DOUBLED.sub(r"\1", s)
     before = MULTISPACE.sub(" ", s).strip()
     if canon:
-        before = " ".join(canon_token(t) for t in before.split())
+        # Short keys only for the countries they were derived from. A
+        # two-letter code is a state here and an article somewhere else.
+        tbl = _WITH_SHORT if country in SHORT_COUNTRIES else _GLOBAL
+        before = " ".join(canon_token(t, tbl) for t in before.split())
 
     out = before
     if drop_legal:

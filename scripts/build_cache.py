@@ -33,8 +33,10 @@ def process(rows: list[tuple[str, str, str, str]]) -> dict:
     for e, name, addr, c in rows:
         eid.append(e)
         cty.append(c)
-        n_norm = normalize(name)
-        a_norm = normalize(addr)
+        # The country decides which variant mappings apply: a two-letter code
+        # is a US state in one country and an ordinary word in another.
+        n_norm = normalize(name, country=c)
+        a_norm = normalize(addr, country=c)
         nn.append(n_norm)
         an.append(a_norm)
         nk.append(blocking_key(name))
