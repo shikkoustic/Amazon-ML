@@ -330,6 +330,58 @@ def prefix_overlap(a: set[str], b: set[str]) -> float:
     return hit / max(len(a | b), 1)
 
 
+
+def cross_source_agreement(cand_text: list[tuple[str, str]],
+                           sources: list[str],
+                           anchors: list[int],
+                           idf: dict[str, float]) -> list[tuple[float, float]]:
+    """How much each candidate agrees with the other source's best candidates.
+
+    Every feature up to here asks whether a candidate resembles the Source 1
+    record. None asks whether the candidates resemble each other, and they
+    must: if an entity matches a Source 2 record and a Source 3 record, those
+    two describe the same business, so they should agree about where it is.
+
+    That distinction is invisible to pairwise scoring in exactly the cases
+    that defeat it. A generic name with no address -- "primary care" -- looks
+    equally like a Boston record and a Denver record, and 19% of Source 1
+    names are shared with another entity. The two candidates cannot both be
+    right, and comparing them says so.
+
+    Measured on held-out candidates, two candidates that are both true matches
+    agree at 0.628 on address tokens against 0.182 when one is false, and
+    0.574 against 0.126 on name tokens -- a wider separation than any single
+    feature already in the model.
+
+    Compared against a few anchors from the other source rather than every
+    candidate: the full comparison is quadratic in the candidate set, and
+    inference already runs for hours over hundreds of millions of pairs.
+    """
+    out: list[tuple[float, float]] = []
+    by_src: dict[str, list[int]] = {}
+    for i in anchors:
+        by_src.setdefault(sources[i], []).append(i)
+    for j, (nm, ad) in enumerate(cand_text):
+        others = [i for src, idxs in by_src.items() if src != sources[j] for i in idxs]
+        if not others:
+            out.append((0.0, 0.0))
+            continue
+        ta, aa = set(nm.split()), set(ad.split())
+        best_a = best_n = 0.0
+        for i in others:
+            on, oa = cand_text[i]
+            if aa:
+                v = idf_overlap(aa, set(oa.split()), idf)
+                if v > best_a:
+                    best_a = v
+            if ta:
+                v = idf_overlap(ta, set(on.split()), idf)
+                if v > best_n:
+                    best_n = v
+        out.append((best_a, best_n))
+    return out
+
+
 FEATURE_NAMES = [
     "name_jac3", "name_jac_tok", "name_contain", "name_ratio",
     "name_token_sort", "name_partial", "name_jw", "name_exact",

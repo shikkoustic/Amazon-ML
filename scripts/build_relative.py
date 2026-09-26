@@ -24,7 +24,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.features import FEATURE_NAMES, pair_features  # noqa: E402
+from src.features import (FEATURE_NAMES, cross_source_agreement,  # noqa: E402
+                          pair_features)
 
 CACHE = Path("/home/user/Amazon-ML/data/interim")
 T0 = time.time()
@@ -37,7 +38,8 @@ REL_NAMES = (
     + [f"{b}_over_best" for b in REL_BASE]
     + [f"{b}_z" for b in REL_BASE]
     + ["n_cands", "n_strong", "best_overall", "mean_overall", "is_argmax",
-       "addr_strong_n", "addr_strong_sole"]
+       "addr_strong_n", "addr_strong_sole", "cross_addr", "cross_name",
+       "cross_addr_rank"]
 )
 
 
@@ -133,6 +135,20 @@ def main() -> None:
         strong = key >= 0.9
         R[s:e, 4 * nb + 5] = float(strong.sum())
         R[s:e, 4 * nb + 6] = (strong & (strong.sum() == 1)).astype(np.float32)
+
+        # Agreement between candidates rather than with the entity. Anchored
+        # on the few best by address overlap, since comparing every candidate
+        # against every other is quadratic and this runs over the whole set.
+        ids = c[s:e]
+        ctext = [text.get(x, ("", "")) for x in ids]
+        csrc = [x[:2] for x in ids]
+        anchors = list(np.argsort(-key)[:4])
+        cross = cross_source_agreement(ctext, csrc, anchors, idf)
+        ca = np.array([v[0] for v in cross], np.float32)
+        cn = np.array([v[1] for v in cross], np.float32)
+        R[s:e, 4 * nb + 7] = ca
+        R[s:e, 4 * nb + 8] = cn
+        R[s:e, 4 * nb + 9] = np.argsort(np.argsort(-ca)) / max(e - s - 1, 1)
     log("relative features computed")
 
     allX = np.hstack([X, R])
