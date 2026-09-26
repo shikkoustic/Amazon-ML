@@ -1,231 +1,339 @@
-# Amazon ML Challenge 2026 — Full Handoff
+# Amazon ML Challenge 2026 — Handoff
 
-Everything needed to continue cold. Repo: `shikkoustic/Amazon-ML`,
-branch `claude/magical-bell-viflxk`.
+Everything needed to continue cold. Repo `shikkoustic/Amazon-ML`, branch
+`claude/magical-bell-viflxk`. Read §5 before changing anything: it lists the
+mistakes that already cost real score.
 
 ---
 
 ## 1. THE PROBLEM
 
 **Business Entity Resolution.** Three independent sources list the same
-businesses with different IDs and noisy text. For every Source-1 entity,
-find all matching records in Source 2 and Source 3. An entity may match
-zero, one, or many.
+businesses with different IDs and noisy text. For every Source-1 entity, find
+all matching records in Source 2 and Source 3. An entity may match zero, one
+or many.
 
-**Fields (all files, tab-separated):** `entity_id` (prefix S1-/S2-/S3-
-identifies the source), `business_name`, `business_address`, `country`.
+**Fields, all files, tab-separated:** `entity_id` (the `S1-`/`S2-`/`S3-`
+prefix identifies the source), `business_name`, `business_address`,
+`country`. There is no separate source column.
 
-**Files:** `dataset/train/train_source{1,2,3}.tsv`,
-`dataset/train/train_ground_truth.tsv`, `dataset/test/test_source{1,2,3}.tsv`.
-Ground truth: `source1_entity_id` + comma-separated `matched_entity_ids`
-(empty if none). Read with `sep="\t"` — without it pandas silently returns
-one column.
-
-**Noise:** abbreviations (Pvt/Private, Rd/Road), legal-suffix mismatch,
-typos, word-order swaps, DBA/trade names replacing the name entirely,
-landmark addresses ("Near SBI ATM"), missing pincodes, `<NULL>` as literal
-text in address fields.
+**Read every file with `sep="\t"`.** Without it pandas silently returns one
+column, because addresses and ID lists both contain commas.
 
 ### Scale
-| | train | test |
-|---|---|---|
+
+|          | train     | test      |
+|----------|-----------|-----------|
 | Source 1 | 2,206,821 | 1,732,544 |
 | Source 2 | 5,034,616 | 4,887,273 |
 | Source 3 | 5,285,603 | 5,082,316 |
 
-Exhaustive comparison on train = 22.7 trillion pairs.
+Exhaustive comparison on train is 22.7 trillion pairs, hence blocking.
 
-### Metric — macro F_0.5
-`F_0.5 = 1.25 P R / (0.25 P + R)`, computed **per Source-1 entity then
-averaged**. Consequences that drive every decision:
-- Precision counts **2x**. Two true matches plus one wrong scores 0.714 —
-  worse than finding one and stopping (0.833). Greed is penalised.
-- Partial recall is cheap: 2 of 3 matches still scores 0.909.
-- **Singletons score 1.0 for an empty prediction, 0.0 for any guess.**
-- Break-even confidence for adding another match runs 0.44 (first of five)
-  to 0.80 (already complete). Optimal flat threshold measured = **0.67**.
+### The metric
+
+`F_0.5 = 1.25·P·R / (0.25·P + R)`, computed **per Source-1 entity then
+averaged**. Three consequences drive every design decision:
+
+- **Precision counts twice.** Two correct matches plus one wrong scores
+  0.714; finding one and stopping scores 0.833. Greed is punished.
+- **Singletons are all-or-nothing.** An entity with no true matches scores
+  1.0 for an empty prediction and 0.0 for any guess. They are 5.58% of
+  entities.
+- **Partial recall is cheap.** Two of three true matches with no false
+  positives still scores 0.909.
+
+Optimal threshold measured at **0.70** for the current model. It is far above
+0.5 because of the first point.
 
 ### Submission
-Two files in `output/`:
-1. `matching_results.tsv` — `source1_entity_id \t matched_entity_ids`.
-   **The only file scored.** One row per test S1 entity (all 1,732,544),
-   empty for singletons, no duplicate IDs, only S2-/S3- IDs that exist in
-   the test set, no self-matches.
-2. `candidate_pairs.tsv` — same format, the blocking output. Not scored but
-   audited; matches must be a subset of candidates.
 
-Final zip also needs `code/business_entity_resolution/` (runnable, README,
-requirements.txt) and a filled `Documentation_template.md`.
+**During the challenge:** upload `matching_results.tsv` only. That is the
+only file scored on the leaderboard.
+
+**Final package:** one zip with `output/matching_results.tsv`,
+`output/candidate_pairs.tsv`, `code/business_entity_resolution/` (runnable,
+with README and requirements.txt) and a filled `Documentation_template.md`.
+
+Rejection rules, all verified against our output: every Source-1 entity must
+have exactly one row; matched IDs must be `S2-`/`S3-` only and must exist in
+the test set; no duplicate IDs within a list; no duplicate entity rows.
 Validate with `student_resource/utils/validate_submission.py` before every
-upload — it checks format only, never quality.
+upload — it caught nothing on ours, but it is free.
 
-**Rules:** no external data lookup of any kind (ER APIs, government
-registries, geocoding, internet augmentation) — instant disqualification.
-Final model must be MIT/Apache-2.0 and under 8B params. LightGBM is fine.
+**Rules:** no external data lookup of any kind (entity-resolution APIs,
+government registries, geocoding, internet augmentation) — immediate
+disqualification. Final model MIT or Apache-2.0 and under 8B parameters.
+LightGBM and MiniLM both qualify.
 
----
-
-## 2. VERIFIED FACTS (exhaustive, all 7,638,365 true pairs, zero exceptions)
-
-- **Matched records always share a country** → partitioning is free, and it
-  generalises to unseen countries because the rule is "same country", never
-  a hard-coded list.
-- **Matches are strictly one-to-many**: 7,638,365 slots = 7,638,365 distinct
-  IDs. No S2/S3 record is ever claimed by two S1 entities.
-- Singletons **5.58%**. Mean 3.46 matches. Max 11 (max 5 from S2, 6 from S3).
-- Source 1 is 100% Latin. S2/S3 carry **nine Indic scripts** (Devanagari,
-  Telugu, Kannada, Tamil, Gujarati, Bengali, Malayalam, Oriya, Gurmukhi) —
-  9.2% of names in train, **11% in test**.
-- No empty names, no duplicate IDs, country always present, 3.3% empty
-  addresses.
-- Test country mix: India 46.8%, US 38.3%, **France 15.0%** (absent from
-  training — its recall is inferred, never measured).
+**Late rule change, watch this:** `candidate_pairs.tsv` counts toward the
+final ranking, and *a smaller candidate set per entity ranks higher*. Ours is
+100/entity. Worth considering before the final package.
 
 ---
 
-## 3. CURRENT STATE
+## 2. WHERE THINGS STAND
 
-| | |
-|---|---|
-| Blocking recall (combo K=50, char-trigram) | 95.5% |
-| F_0.5 ceiling that implies | 0.9835 |
-| Matcher, measured honestly | **0.9145** |
-| Leaderboard leaders | **0.980** |
-| All-empty baseline | 0.056 |
+Leaderboard, in order:
 
-**The gap is blocking recall, not the model.** Our ceiling (0.9835) barely
-exceeds their score.
+    0.907   v1   combo char-trigram candidates, 69-feature model
+    0.908   v2   France normalisation fix
+    0.912   v3p  France+India re-scored, matched candidates, 79 features
 
-### THE KEY FINDING — not yet deployed
-**99.93% of true pairs share at least one exact whole token.**
+Leaders are at **0.988–0.99**. A teammate's other team reports 0.925.
 
-| blocking | India recall | speed | full test run |
-|---|---|---|---|
-| char_wb (3,3) — what Kaggle is running | 91.3% @K=50 | 33 q/s | 14.4 h |
-| **word (1,1)** | **94.5% @K=100** | **107 q/s** | **4.5 h** |
+Held-out validation (5,000 entities, seed 42, 75/25 by entity):
 
-Char n-grams carry 31 non-zeros/doc vs 11 for words, so the sparse product
-touches 3x more index. Choosing them for typo tolerance was wrong: the noise
-rarely destroys whole tokens. **This is the highest-value fix available.**
+    0.9112  starting point
+    0.9143  word-level blocking + region features
+    0.9164  full normalisation rebuild
+    0.9256  cross-source agreement
+    0.9307  street-number repair           <- +0.0051
+    0.9319  name containment + ordinals
+    0.9427  cross-encoder cascade          <- +0.0108
+
+Validation runs about 0.017 above the board. That gap was a train/inference
+blocking mismatch and should be smaller now that candidates match.
 
 ---
 
-## 4. WHAT EXISTS IN THE REPO
+## 3. THE DECOMPOSITION THAT MATTERS
 
-| file | purpose |
-|---|---|
-| `src/normalize.py` | transliterate → collapse doubles → strip suffixes (order matters, see §6) |
-| `src/features.py` | 27 pair features |
-| `src/scoring.py` | macro F_0.5, verified against organisers' worked example (0.714) |
-| `scripts/build_cache.py` | normalise all records once → parquet |
-| `scripts/profile_data.py`, `verify_assumptions.py` | the §2 measurements |
-| `scripts/stage1_experiments.py` | blocking sweep harness |
-| `scripts/generate_candidates.py` | blocking for a split (local) |
-| `scripts/aws_blocking.py` | **word-level blocking, many-core — use this** |
-| `kaggle_kernel/run_blocking.py` | char-trigram version running on Kaggle |
-| `scripts/export_training_pairs.py` | candidates + labels for Stage 2 |
-| `scripts/build_relative.py` | adds within-entity relative features |
-| `scripts/train_v2.py` | trains the matcher, sweeps threshold |
-| `reports/STAGE1_SUMMARY.md` | full Stage 1 write-up |
+Do not optimise anything before reading this. Measured on validation:
 
-### ⚠️ WHAT DOES NOT EXIST YET
-**There is no test-inference script.** Nothing takes test candidates →
-features → model → `matching_results.tsv`. This must be written. It needs
-to stream (1.7M entities x ~100 candidates = ~170M pairs) rather than load
-everything into memory.
+    perfect                                           1.0000
+    ceiling (perfect matcher on our candidates)       0.9886
+    no false positives                                0.9458
+    ACTUAL                                            0.9256
 
----
+    matcher rejects a true pair already in candidates   57.6% of loss
+    matcher adds a false positive                       27.1%
+    blocking never proposed the pair                    15.3%
 
-## 5. IN FLIGHT
+**Blocking is a sixth of the problem.** A day went into it for +0.000.
 
-**Kaggle — 6 notebooks, char-trigram, started ~11:00 25 Sep, ~8h each.**
-Your account: `AmznChlng` (combo s2), `Amzn-ML-2` (combo s3), plus addr s2
-and addr s3. Teammate's account: name s2, name s3.
-Outputs: `candidate_pairs_{signal}_s{2|3}.tsv` in each notebook's Output tab.
+Ranking the rejected true pairs by recoverable macro-F:
 
-**EC2** — instance `i-0ccb9aeb7d7ab959c`, **c7i.8xlarge, 32 vCPU**,
-public IP **98.80.138.181**, us-east-1, **Amazon Linux 2023** (user
-`ec2-user`, package manager `dnf`). ~$1.43/h — **TERMINATE WHEN DONE**.
+    name identical, address differs      31%
+    both partly agree                    20%
+    address empty on one side            19%
+    both differ substantially            13%
+    address agrees, name replaced        10%
+    name agrees, address differs          7%
 
-Setup (already run, or re-run if needed):
-```bash
-sudo dnf install -y -q python3-pip unzip
-pip3 install --user -q numpy scipy scikit-learn sparse_dot_topn unidecode gdown
-mkdir -p ~/work && cd ~/work
-python3 -m gdown "1xrbNNUwuVk_GwfLJ8cw-3ZSmzQ9FPCZg" -O dataset.zip
-unzip -q dataset.zip && rm dataset.zip
-```
-Then copy `scripts/aws_blocking.py` to `~/work/run.py` and:
-```bash
-cd ~/work
-DATA=/home/ec2-user/work/student_resource/dataset OUT=/home/ec2-user/work/output \
-  THREADS=32 nohup python3 -u run.py > run.log 2>&1 &
-tail -f run.log
-```
-Expect ~600 q/s. Combined field ~50 min, all three signals ~2.5 h.
-Retrieve results: `cd ~/work/output && python3 -m http.server 8000`
-then browse `http://98.80.138.181:8000` (port 8000 already open).
+The first class is *also* 38% of the false positives. Same-name-different-
+address is simultaneously the largest recall loss and the largest precision
+loss: the model cannot tell a damaged address from a different branch.
+
+**The score is concentrated in a tiny band.** The model is near-certain about
+almost everything: pairs below 0.05 are 0.1% true, pairs above 0.95 are 99.2%
+true. Every mistake sits in 0.42% of pairs. Resolving 0.20–0.80 perfectly is
+worth 0.9319 → 0.9569; resolving 0.05–0.95 is worth 0.9753. At test scale
+that is 1.7M pairs to re-score, not 173M, and the first-stage score names
+them.
 
 ---
 
-## 6. THINGS THAT WILL BITE YOU
+## 4. WHAT EXISTS
 
-- **Normalisation order matters.** Strip legal suffixes AFTER collapsing
-  doubled letters, or the Latin record loses "private limited" while its
-  Indic counterpart keeps "praaivett limittedd" — asymmetric, and it
-  destroys exactly the pairs transliteration exists to rescue. Fixing the
-  order lifted cross-script similarity from 0.000 to 0.16–0.27.
-- **Guard against normalisation emptying a string.** "SARL" → "" matches
-  nothing.
-- **Top-K must be applied per source.** Pooling S2 and S3 lets one source
-  absorb the whole budget; 80% of entities match records in both.
-- **Downsampling negatives inflates the score.** Reporting 0.9468 that way
-  was wrong; honest was 0.9024. It also breaks calibration — train at 16.8%
-  positives against a true 2.6% and a score of 0.6 means a 16% chance of
-  being right.
-- **Relative features need the FULL candidate set.** Rank within a sampled
-  set is a different quantity.
-- Stage 2 must be trained on the **same blocking config** that inference
-  uses, since the strongest features are within-candidate-set z-scores.
+### Data
+
+    data/raw/student_resource/dataset/{train,test}/    raw TSVs
+    data/interim/{train,test}_source{1,2,3}.parquet    normalised cache
+    data/interim/matcher_v2.txt                        current model, 79 features
+    data/interim/specialist.txt                        band specialist (failed, see §6)
+
+The parquet cache is normalised text plus blocking keys. Rebuild with
+`scripts/build_cache.py` after any normalisation change — it skips files that
+already exist, so move them aside first.
+
+### Candidates
+
+    kaggle_outputs/wordblock-v3/candidate_pairs_combo_s{2,3}.tsv   TEST, matched
+    data/interim/wordcand/candidate_pairs_combo_train.tsv          20k entities
+    data/interim/wordcand/candidate_pairs_combo_big.tsv            200k entities
+
+The test candidates are word-level TF-IDF with the repaired normalisation,
+100/entity, 1,732,544 rows each, all countries. **These match what the model
+was trained on. Use these.**
+
+### Pipeline
+
+    src/normalize.py         country-aware normalisation
+    src/variants.py          GLOBAL + SHORT variant tables (see §5)
+    src/features.py          79 pair features
+    src/scoring.py           macro F_0.5, verified against the worked example
+    scripts/build_cache.py   raw -> normalised parquet
+    scripts/word_candidates.py   blocking, resumable, --analyzer word|char_wb
+    scripts/union_pairs.py       candidates + labels -> parquet
+    scripts/build_relative.py    pair features + within-entity relative features
+    scripts/train_v2.py          trains the matcher, sweeps the threshold
+    scripts/predict_test.py      scores test candidates -> matching_results.tsv
+    scripts/evaluate.py          scores any predictions file, stdlib only
+    kaggle_kernel/train_crossencoder.py   cross-encoder on Kaggle GPU
+
+`predict_test.py` is resumable: each shard writes its result and `--resume`
+skips finished ones. It shards by country first (safe — matched records always
+share a country) then by entity hash, so an entity's candidates stay together,
+which the relative features require.
+
+### Infrastructure
+
+Kaggle CLI is configured for `shikkoustic` (`~/.kaggle/`). Kernels are pushed
+by API rather than pasted — a 20KB paste silently truncated once and died on a
+syntax error mid-table.
+
+    shikkoustic/wordblock-v3     word-level test blocking, COMPLETE
+    shikkoustic/ce-matcher       cross-encoder, GPU, COMPLETE
+    shikkoustic/amazon-ml-ce-pairs   dataset: cross-encoder training pairs
+
+Kaggle's *script* images are leaner than its *notebook* images — `unidecode`
+is absent from one. The kernel installs what it needs rather than dying on
+the import.
+
+No AWS credentials in this container; EC2 was a dead end (the instance was a
+t3.micro the free plan could not resize).
 
 ---
 
-## 7. TESTED AND REJECTED — don't redo
+## 5. TRAPS THAT ALREADY COST SCORE
 
-| idea | result |
-|---|---|
-| Exploiting one-to-many constraint | real but **non-binding**, 0 conflicts at any useful threshold |
-| Rank-aware thresholds | +0.0014, not worth complexity |
-| Stacking on out-of-fold scores | 0.9210 vs 0.9217, no gain |
-| "Rescue" (take top-1 when nothing clears threshold) | −0.005, wrecks singletons |
-| Short-circuit routing on exact match | loses recall; entities average 3.46 matches |
-| Intersecting two retrieval methods | backwards — blocking takes the union |
-| Union-Find transitive closure | unbounded chaining, worst failure mode under F_0.5 |
-| max_df=0.005 pruning | 30x faster but costs 7 points of ceiling |
+**Hard-coded abbreviations destroyed a country.** A US-state table mapped
+`de`→delaware and `la`→louisiana, which are the commonest words in a French
+address: `rue de la Paix` became `rue delaware louisiana paix`, 119,000 times
+across French addresses. France is 15% of test and absent from training, so
+validation never saw it. Fixed by a rule, not a list: keys of three
+characters or fewer apply only to the countries they were derived from.
+Three entries also merged distinct words — court/connecticut, mount/montana,
+saint/street — because `ct`, `mt` and `st` are each two different English
+words.
 
-**What DID work:** combined name+address field (+1.115% recall), relative
-within-entity features (**+0.0146 ablated**), max_df=0.05 (free 2x speedup),
-threshold 0.67.
+**Train and inference must use the same blocking configuration.** The
+strongest features are relative: rank, gap-to-best and z-score *within the
+entity's candidate set*. Score against a differently-built candidate pool and
+every one of them shifts. Done by accident in v1; cost about 0.017.
+
+**Validation covered only US and India.** Those are the only countries in
+training. France is 15% of test and was never measured until the board told
+us. Any future change should be checked for country-specific damage.
+
+**Downsampling negatives inflates the score.** Reporting 0.9468 that way was
+wrong; honest was 0.9024. It also breaks calibration.
+
+**Sorting matters.** The candidate list came from iterating a Python set, and
+string hashing is randomised per process, so two identical runs disagreed on
+~3% of entities. Relative features break ties by position. Sort the list.
+
+**Forking after loading a LightGBM model deadlocks.** Loading a Booster
+initialises OpenMP; the forked children hang with the parent at 100% CPU and
+workers at 0%. The feature count is read from the model file header instead,
+so the parent never imports lightgbm before forking.
+
+**Two workers beat four.** Each worker holds the country's text map (India is
+~5M entities) and copy-on-write stops helping once they touch those pages.
+Four workers ran at under half a core each and the pass slowed from an
+estimated 2h toward 5h. Two workers: memory 13GB → 5GB, and *faster*.
+
+**Background jobs die when the container suspends.** Anything long must
+checkpoint. `word_candidates.py` and `predict_test.py` both do;
+`build_relative.py` does not and has been killed mid-run.
 
 ---
 
-## 8. PLAN — in order
+## 6. TESTED AND REJECTED — do not redo
 
-1. **Run word-level blocking on EC2** (`scripts/aws_blocking.py`). Biggest
-   available win. ~50 min for the combined field at 32 cores.
-2. Collect Kaggle outputs as they land; union with the EC2 output. Union
-   only raises recall.
-3. Measure each config's recall on train, pick the best.
-4. Rebuild Stage 2 training pairs on the **chosen** config
-   (`export_training_pairs.py` → `build_relative.py` → `train_v2.py`).
-5. **Write the test-inference script** (§4) → `matching_results.tsv`.
-6. Run `validate_submission.py`, then submit and read the real score.
-7. Iterate against leaderboard feedback.
+    raising blocking recall, three separate times   +0.000 to +0.002 each
+    training data 7x larger                         recall flat at 0.856
+    exclusivity constraint (one-to-many)            zero conflicts at any threshold
+    top-k and rank-aware decision rules             all below a flat threshold
+    expected-F_0.5 decision rule with calibration   -0.0005 against flat
+    scaling the variant table 286 -> 6,042          touches ~5% of pairs
+    character trigrams vs word tokens               worse recall, 6.7x slower
+    a second GBM on the uncertain band              0.7787 in-band vs 0.8043
+    "rescue" rule (take top-1 when nothing clears)  -0.005, wrecks singletons
+    Union-Find transitive closure                   unbounded chaining
 
-### Targets
-- Realistic with word-level blocking: **0.92–0.94**
-- Needed to be competitive: **0.97+**
-- Current projection without the fix: 0.9145
+The specialist result is the important one: a GBM on the same features does
+*worse* than the general model inside the band. The features are spent, which
+is the whole argument for the cross-encoder.
 
-Getting *any* leaderboard reading is urgent — every number so far is from
-our own validation split, and we have had zero external feedback.
+---
+
+## 7. THE CROSS-ENCODER CASCADE
+
+The one lever with real magnitude left.
+
+**Why.** The band the first stage cannot decide is 0.42% of pairs and holds
+all the remaining loss. Hand-built features cannot separate it (§6). A model
+reading the raw text can: MiniLM reached 0.8907 in-band AUC against the first
+stage's 0.8043.
+
+**Measured.** Blending the cross-encoder 60/40 with the first stage inside the
+band: validation 0.9319 → **0.9427**, +0.0108. Weight 1.0 gives +0.0095, so
+the first stage still carries signal where it is unsure.
+
+**Known limit.** That prototype trained 6 minutes on 25,868 in-band pairs.
+A perfect band resolution is worth +0.043, so it captured about a quarter.
+`candidate_pairs_combo_big.tsv` (200,000 entities, 20M pairs) exists to give
+roughly 250,000 in-band pairs — 10× the training data — for a larger model.
+That is the open work.
+
+**To apply it to test you need first-stage scores for every test pair**, to
+know which fall in the band. `predict_test.py --dump-scores` does this but
+requires `--workers 1`. The current v3 run does not dump them, so a second
+pass is needed. Plan for that before starting a scoring run.
+
+**Licensing.** MiniLM is Apache-2.0 and 22M parameters, inside the rules. The
+pretrained weights are a general language model, not a lookup of any business,
+and only the provided training data is used to fine-tune.
+
+---
+
+## 8. IN FLIGHT AND NEXT
+
+**Running now:** `predict_test.py` producing `output/matching_results_v3.tsv`
+with matched candidates, 79 features, threshold 0.70, two workers. 40/48
+shards. France and India complete; US in progress.
+
+**Already submitted from it:** `output/matching_results_v3partial.tsv` — v3
+rows for France and India, v2 rows for US — scored 0.912.
+
+**Next, in order:**
+
+1. When US finishes, write the full v3 and submit. Expect ~0.9145.
+2. Second scoring pass with `--dump-scores` to get first-stage scores for all
+   test pairs, so the band can be identified.
+3. Build features on `candidate_pairs_combo_big.tsv`, extract in-band pairs,
+   retrain the cross-encoder larger on Kaggle GPU, re-measure the cascade.
+4. Apply the cascade to the test band, submit.
+5. Final package: both TSVs, `code/business_entity_resolution/`, and a filled
+   `Documentation_template.md`. **The methodology document is not written
+   yet** and is a hard requirement.
+
+**Realistic expectation.** Full v3 ~0.9145, plus the current cascade ~0.925,
+plus a scaled cross-encoder perhaps 0.93–0.94. 0.95 has not been shown to be
+reachable from this architecture; every other lever has been measured and
+exhausted.
+
+---
+
+## 9. HOW TO MAKE PROGRESS HERE
+
+The method that worked, three times out of three:
+
+1. **Decompose the loss.** Blocking, matcher recall, matcher precision,
+   singletons. Fix the biggest bucket, not the most interesting one.
+2. **Read the actual failures.** Pull the true pairs the model rejects most
+   confidently and look at them. Rank the classes by recoverable macro-F.
+3. **Fix the systematic class with a general rule**, then measure on held-out
+   before believing it.
+
+Guessing at features from first principles returned +0.002 every time.
+Reading failures returned +0.005 (street numbers) and +0.009
+(transliteration). The cascade came from decomposing the score distribution
+rather than the feature space.
+
+One more caution. A signal that separates well *in isolation* is not
+necessarily new information. Cross-source agreement measured 0.628 vs 0.182
+standalone and returned +0.0013, because it restated what the model already
+had. Test marginally, against everything else the model sees.
